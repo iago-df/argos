@@ -38,6 +38,22 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
+/** one sheet at a time, drawn above everything by [SheetHost] so screens can open it from anywhere */
+object Sheets {
+    var visible by androidx.compose.runtime.mutableStateOf(false); private set
+    var title by androidx.compose.runtime.mutableStateOf<String?>(null); private set
+    var body by androidx.compose.runtime.mutableStateOf<(@Composable ColumnScope.() -> Unit)?>(null); private set
+
+    fun open(title: String?, body: @Composable ColumnScope.() -> Unit) {
+        this.title = title; this.body = body; visible = true
+    }
+
+    fun close() { visible = false }
+}
+
+@Composable
+fun SheetHost() = Sheet(Sheets.visible, Sheets::close, Sheets.title) { Sheets.body?.invoke(this) }
+
 /** bottom sheet with the app look: white, round top, drag down or tap outside to close */
 @Composable
 fun Sheet(open: Boolean, onClose: () -> Unit, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
