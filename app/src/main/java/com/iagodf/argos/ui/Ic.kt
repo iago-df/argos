@@ -49,5 +49,6 @@ object Ic {
     val apps = IconData(listOf("M4 4h6v6H4z", "M14 4h6v6h-6z", "M4 14h6v6H4z", "M14 14h6v6h-6z"))
     val info = IconData(listOf("M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0", "M12 11v5.5", "M12 7.8h.01"))
     val minus = IconData(listOf("M6 12h12"))
+    val add = IconData(listOf("M12 6v12", "M6 12h12"))
     val eye = IconData(listOf("M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z", "M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"))
 }
