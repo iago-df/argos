@@ -49,6 +49,7 @@ import com.iagodf.argos.ui.U
 import com.iagodf.argos.ui.ToastHost
 import com.iagodf.argos.ui.SheetHost
 import com.iagodf.argos.ui.focus.FocusScreen
+import com.iagodf.argos.ui.friction.FrictionScreen
 import com.iagodf.argos.ui.schedules.SchedulesScreen
 import com.iagodf.argos.ui.blocks.BlocksScreen
 import com.iagodf.argos.ui.home.ActivitySheet
@@ -111,6 +112,7 @@ fun App() {
                     )
                     t == Tab.Focus -> FocusScreen()
                     t == Tab.Schedules -> SchedulesScreen()
+                    t == Tab.Blocks && s == Sub.Friction -> FrictionScreen()
                     t == Tab.Blocks -> BlocksScreen(openFriction = { sub = Sub.Friction })
                     else -> Unit
                 }

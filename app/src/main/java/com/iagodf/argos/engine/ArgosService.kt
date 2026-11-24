@@ -21,6 +21,7 @@ import com.iagodf.argos.data.tr
 class ArgosService : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
     private lateinit var overlay: Overlay
+    private lateinit var friction: FrictionEngine
     private var lastAction = 0L
     private var pendingPkg: String? = null
     private val check = Runnable { pendingPkg?.let { inspect(it) } }
@@ -34,6 +35,7 @@ class ArgosService : AccessibilityService() {
         Lang.load(this)
         Store.init(this)
         overlay = Overlay(this)
+        friction = FrictionEngine(this, overlay)
         running = true
     }
 
@@ -47,7 +49,10 @@ class ArgosService : AccessibilityService() {
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         val pkg = e.packageName?.toString() ?: return
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && focusCheck(pkg)) return
-        if (pkg != Apps.INSTAGRAM && pkg != Apps.YOUTUBE && pkg !in Apps.browsers) return
+        val feedApp = pkg == Apps.INSTAGRAM || pkg == Apps.YOUTUBE
+        if (!feedApp && pkg != packageName && e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) friction.inReels(false)
+        if (feedApp && e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && friction.active) friction.swiped()
+        if (!feedApp && pkg !in Apps.browsers) return
         if (pkg == Apps.INSTAGRAM && e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && dmReelSince > 0 &&
             SystemClock.elapsedRealtime() - dmReelSince > 1500
         ) {
@@ -67,6 +72,11 @@ class ArgosService : AccessibilityService() {
         val pol = Policy.now()
         val s = Screen(root)
         if (pkg == Apps.INSTAGRAM && !s.igReelsViewer && !s.igDirectThread) dmReelSince = 0
+        // reels that are allowed right now get friction
+        friction.inReels(
+            (pkg == Apps.INSTAGRAM && s.igReelsViewer && !pol.reels && dmReelSince == 0L) ||
+                (pkg == Apps.YOUTUBE && s.ytShorts && !pol.shorts)
+        )
         when (pkg) {
             Apps.INSTAGRAM -> when {
                 s.igDirectThread -> { lastThreadAt = SystemClock.elapsedRealtime(); dmReelSince = 0 }
