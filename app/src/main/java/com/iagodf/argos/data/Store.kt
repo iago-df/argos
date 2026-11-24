@@ -47,6 +47,10 @@ data class Schedule(
         return null
     }
 
+    /** the default schedules follow the app language, the ones you name keep your name */
+    val label: String
+        get() = DEFAULT_NAMES.firstOrNull { name in it.toList() }?.let { tr(it.first, it.second) } ?: name
+
     fun toJson() = JSONObject().put("id", id).put("name", name).put("kind", kind.name).put("days", days)
         .put("start", start).put("end", end).put("on", on)
 
@@ -54,6 +58,10 @@ data class Schedule(
         fun from(o: JSONObject) = Schedule(
             o.getLong("id"), o.getString("name"), Kind.valueOf(o.getString("kind")), o.getInt("days"),
             o.getInt("start"), o.getInt("end"), o.getBoolean("on"),
+        )
+
+        private val DEFAULT_NAMES = listOf(
+            "Focus total" to "Deep focus", "Sin Reels ni Shorts" to "No Reels or Shorts", "Noche" to "Night",
         )
 
         const val WEEKDAYS = 0b0011111

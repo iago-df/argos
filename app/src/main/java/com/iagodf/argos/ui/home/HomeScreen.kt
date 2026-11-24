@@ -130,7 +130,7 @@ fun HomeScreen(openFocus: () -> Unit, openSchedules: () -> Unit, openLock: () ->
                         next?.let { (s, at) ->
                             val day = if (at.toLocalDate() == LocalDateTime.now().toLocalDate()) "" else at.dayOfWeek
                                 .getDisplayName(java.time.format.TextStyle.SHORT, com.iagodf.argos.data.Lang.locale) + " "
-                            "${s.name} · $day${hhmm(at.toLocalTime())}"
+                            "${s.label} · $day${hhmm(at.toLocalTime())}"
                         } ?: tr("Sin horarios activos", "No schedules on"),
                         12, 400, C.Muted, lines = 1,
                     )

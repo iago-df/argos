@@ -153,7 +153,7 @@ private fun ScheduleCard(s: Schedule) {
             Tile(icon, bg, tint = tint, size = 44, radius = 14, iconSize = 21)
             Spacer(Modifier.width(12.u))
             Column(Modifier.weight(1f)) {
-                T(s.name, 15, 650, lines = 1)
+                T(s.label, 15, 650, lines = 1)
                 T(wait?.let { waitText(it.applyAt) } ?: scheduleSub(s), 12, 400, if (wait != null) C.Orange else C.Muted, Modifier.padding(top = 2.u), lines = 1)
             }
             Spacer(Modifier.width(10.u))
@@ -171,7 +171,7 @@ private fun openEditor(s: Schedule?) {
 
 @Composable
 private fun Editor(orig: Schedule?) {
-    var name by remember { mutableStateOf(orig?.name ?: "") }
+    var name by remember { mutableStateOf(orig?.label ?: "") }
     var kind by remember { mutableStateOf(orig?.kind ?: Kind.Focus) }
     var days by remember { mutableStateOf(orig?.days ?: Schedule.WEEKDAYS) }
     var start by remember { mutableStateOf(orig?.start ?: 9 * 60) }
