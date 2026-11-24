@@ -96,9 +96,11 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 1200) {
     fun exploreGrid(): Rect? {
         val w = bounds.width().coerceAtLeast(1)
         val h = bounds.height().coerceAtLeast(1)
-        val search = nodes.firstOrNull { n ->
-            (n.editable || n.id?.contains("search", true) == true) && n.rect.top < bounds.top + h * .3f && n.rect.width() > w * .4f
-        } ?: return null
+        // the search bar: an input (or something called search) near the top, as low as a bar
+        val search = nodes.filter { n ->
+            (n.editable || n.id?.contains("search", true) == true) && n.rect.top < bounds.top + h * .3f &&
+                n.rect.width() > w * .4f && n.rect.height() in 1..(h * .12f).toInt()
+        }.maxByOrNull { it.rect.bottom } ?: return null
         val lists = nodes.withIndex().filter { (_, n) -> n.scrollable && n.rect.height() > h * .35f && n.rect.width() > w * .8f && n.rect.top >= search.rect.top }
         for ((i, list) in lists) {
             // tiles: a third (or two thirds) of the width, a bit tall, without text, at most two levels down

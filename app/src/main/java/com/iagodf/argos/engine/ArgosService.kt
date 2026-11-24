@@ -194,7 +194,8 @@ class ArgosService : AccessibilityService() {
         friction.inReels(viewer && !pol.reels && !fromChat)
 
         val tabs = if (pol.reels && !viewer) s.entryPoints(setOf("Reels"), setOf("clips_tab")).map { it to Feed.Reels } else emptyList()
-        val onSearch = "search_tab" in s.selected || s.selectedDescs.any { it.startsWith("Search", true) || it.startsWith("Buscar", true) }
+        val onSearch = "search_tab" in s.selected || s.selectedDescs.any { it.startsWith("Search", true) || it.startsWith("Buscar", true) } ||
+            s.hasPart("action_bar_search") || s.hasPart("explore")
         val grid = if (pol.explore && onSearch && !viewer) s.exploreGrid() else null
         shields.show(tabs, grid)
 

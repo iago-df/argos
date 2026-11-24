@@ -90,9 +90,9 @@ class LockBadge(ctx: Context, private val label: String? = null, private val max
             c.drawText(label, x0 + icon + 5 * dp, r.centerY() - (text.ascent() + text.descent()) / 2, text)
             return
         }
-        val d = min(min(w, h) * .94f, maxSize * dp)
+        val d = min(min(w, h) * .9f, maxSize * dp)
         val cx = w / 2; val cy = h / 2; val rad = d / 2
-        shadow.setShadowLayer(8 * dp, 0f, 3 * dp, Color.argb(110, 40, 30, 120))
+        shadow.setShadowLayer(4 * dp, 0f, 2 * dp, Color.argb(90, 40, 30, 120))
         c.drawCircle(cx, cy, rad - 1, shadow.apply { color = Color.WHITE })
         c.drawCircle(cx, cy, rad, ring)
         val inner = rad - d * 3f / 54f
@@ -215,7 +215,7 @@ class Shields(private val svc: AccessibilityService, private val ov: Overlay) {
             gravity = Gravity.CENTER
             setBackgroundColor(if (dark) Color.rgb(0x0f, 0x0e, 0x15) else Color.rgb(0xf6, 0xf5, 0xfb))
             setPadding((32 * dp).toInt(), 0, (32 * dp).toInt(), (40 * dp).toInt())
-            addView(badge, LinearLayout.LayoutParams((64 * dp).toInt(), (64 * dp).toInt()))
+            addView(badge, LinearLayout.LayoutParams((76 * dp).toInt(), (76 * dp).toInt()))
             addView(TextView(svc).apply {
                 text = tr("Explorar está apagado", "Explore is off")
                 setTextColor(if (dark) Color.WHITE else Color.rgb(0x15, 0x13, 0x1d))
@@ -272,7 +272,7 @@ class ChatGuard(private val svc: AccessibilityService, private val ov: Overlay) 
         if (view != null) return
         val lock = LockBadge(svc).apply { alpha = 0f }
         val root = FrameLayout(svc)
-        root.addView(lock, FrameLayout.LayoutParams((58 * dp).toInt(), (58 * dp).toInt(), Gravity.CENTER))
+        root.addView(lock, FrameLayout.LayoutParams((68 * dp).toInt(), (68 * dp).toInt(), Gravity.CENTER))
         val p = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -284,7 +284,7 @@ class ChatGuard(private val svc: AccessibilityService, private val ov: Overlay) 
         var down = 0L
         var mode = 0 // 0 not sure yet, 1 up or down (stopped), 2 tap or sideways (played back)
         root.setOnTouchListener { _, e ->
-            if (replaying) return@setOnTouchListener true
+            if (replaying) { if (e.actionMasked == MotionEvent.ACTION_DOWN) bounced = true; return@setOnTouchListener true }
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> { pts.clear(); pts.add(e.rawX to e.rawY); down = e.eventTime; mode = 0 }
                 MotionEvent.ACTION_MOVE -> {
@@ -312,36 +312,40 @@ class ChatGuard(private val svc: AccessibilityService, private val ov: Overlay) 
         if (runCatching { wm.addView(root, p) }.isSuccess) { view = root; lp = p }
     }
 
-    /** gives the touch to the app underneath: the window lets touches through, the gesture is played, then it closes again */
+    /**
+     * gives the touch to the app underneath: the window lets touches through, the gesture is played, then it
+     * closes again. android applies the "let through" a moment later; if the played touch still lands here,
+     * it is played again a bit later
+     */
     private fun replay(pts: List<Pair<Float, Float>>, ms: Long, moved: Boolean) {
         val v = view ?: return
         val p = lp ?: return
         val path = Path()
         path.moveTo(pts[0].first.coerceAtLeast(0f), pts[0].second.coerceAtLeast(0f))
         if (moved) pts.drop(1).forEach { (x, y) -> path.lineTo(x.coerceAtLeast(0f), y.coerceAtLeast(0f)) }
-        val dur = ms.coerceIn(1, 8000)
+        val g = GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, ms.coerceIn(1, 8000))).build()
         replaying = true
+        bounced = false
         p.flags = p.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         runCatching { wm.updateViewLayout(v, p) }
-        val done = {
-            main.postDelayed({
-                if (view == v) {
-                    p.flags = p.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-                    runCatching { wm.updateViewLayout(v, p) }
-                }
-                replaying = false
-            }, 60)
-            Unit
+        fun done() = main.postDelayed({
+            if (view == v) {
+                p.flags = p.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                runCatching { wm.updateViewLayout(v, p) }
+            }
+            replaying = false
+        }, 60)
+        fun send(left: Int) {
+            bounced = false
+            val cb = object : AccessibilityService.GestureResultCallback() {
+                override fun onCompleted(d: GestureDescription?) { after() }
+                override fun onCancelled(d: GestureDescription?) { after() }
+                fun after() { if (bounced && left > 0 && view == v) main.postDelayed({ send(left - 1) }, 70) else done() }
+            }
+            if (!runCatching { svc.dispatchGesture(g, cb, main) }.getOrDefault(false)) done()
         }
-        main.postDelayed({
-            val g = GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, dur)).build()
-            val sent = runCatching {
-                svc.dispatchGesture(g, object : AccessibilityService.GestureResultCallback() {
-                    override fun onCompleted(d: GestureDescription?) { done() }
-                    override fun onCancelled(d: GestureDescription?) { done() }
-                }, main)
-            }.getOrDefault(false)
-            if (!sent) done()
-        }, 40)
+        main.postDelayed({ send(4) }, 50)
     }
+
+    private var bounced = false
 }
