@@ -51,6 +51,7 @@ import com.iagodf.argos.ui.SheetHost
 import com.iagodf.argos.ui.focus.FocusScreen
 import com.iagodf.argos.ui.lock.LockScreen
 import com.iagodf.argos.ui.setup.SetupCard
+import com.iagodf.argos.ui.settings.openSettings
 import com.iagodf.argos.ui.friction.FrictionScreen
 import com.iagodf.argos.ui.schedules.SchedulesScreen
 import com.iagodf.argos.ui.blocks.BlocksScreen
@@ -111,7 +112,10 @@ fun App() {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(top = 6.u)) {
                 val back = if (s != Sub.None) ({ sub = Sub.None }) else null
                 Header(onBack = back) {
-                    if (t == Tab.Home && s == Sub.None) CircleButton(Ic.bell, { activity = true }, dot = Store.blockedToday() > 0)
+                    if (t == Tab.Home && s == Sub.None) {
+                        CircleButton(Ic.gear, { openSettings() })
+                        CircleButton(Ic.bell, { activity = true }, dot = Store.blockedToday() > 0)
+                    }
                 }
                 Spacer(Modifier.height(18.u))
                 when {
