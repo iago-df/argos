@@ -6,12 +6,18 @@ import android.view.accessibility.AccessibilityNodeInfo
  * a flat read of what is on screen: view ids, selected ids, texts and descriptions.
  * instagram and youtube change their ids now and then, so the checks look for several of them
  */
+private val DANGER = listOf(
+    "Uninstall", "Desinstalar", "Force stop", "Forzar", "Clear storage", "Clear data", "Borrar almacenamiento", "Borrar datos",
+    "Use Argos", "Usar Argos", "Deactivate", "Desactivar", "Device admin", "Administrador", "Stop Argos", "¿Detener", "Turn off",
+)
+
 class Screen(root: AccessibilityNodeInfo?, limit: Int = 600) {
     val ids = HashSet<String>()
     val selected = HashSet<String>()
     val descs = ArrayList<String>()
     val selectedDescs = ArrayList<String>()
     val texts = ArrayList<Pair<String, String>>() // id to text
+    val allText = ArrayList<String>()
 
     init {
         if (root != null) {
@@ -31,6 +37,7 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 600) {
                     if (node.isSelected) selectedDescs.add(d)
                 }
                 if (id != null && node.text != null) texts.add(id to node.text.toString())
+                node.text?.toString()?.let { allText.add(it) }
                 for (i in 0 until node.childCount) node.getChild(i)?.let { stack.add(it) }
             }
         }
@@ -65,6 +72,16 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 600) {
             "url_bar", "mozac_browser_toolbar_url_view", "location_bar_edit_text", "url_field", "omnibarTextInput",
             "search_box", "address_bar_edit_text", "url",
         )?.trim()?.lowercase()?.removePrefix("https://")?.removePrefix("http://")
+
+    // ---------- self protection ----------
+
+    /** a settings page about Argos that could switch it off or remove it */
+    val dangerForArgos: Boolean
+        get() {
+            val all = allText + descs
+            if (all.none { it.contains("Argos") }) return false
+            return all.any { t -> DANGER.any { t.contains(it, ignoreCase = true) } }
+        }
 
     // ---------- youtube ----------
 

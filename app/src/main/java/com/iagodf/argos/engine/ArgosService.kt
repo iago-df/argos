@@ -35,6 +35,7 @@ class ArgosService : AccessibilityService() {
         Lang.load(this)
         Store.init(this)
         overlay = Overlay(this)
+        com.iagodf.argos.lock.Guard.start(this)
         friction = FrictionEngine(this, overlay)
         running = true
     }
@@ -49,6 +50,7 @@ class ArgosService : AccessibilityService() {
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         val pkg = e.packageName?.toString() ?: return
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && focusCheck(pkg)) return
+        if (pkg in SETTINGS && Store.committed) { schedule(pkg); return }
         val feedApp = pkg == Apps.INSTAGRAM || pkg == Apps.YOUTUBE
         if (!feedApp && pkg != packageName && e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) friction.inReels(false)
         if (feedApp && e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && friction.active) friction.swiped()
@@ -60,17 +62,28 @@ class ArgosService : AccessibilityService() {
             block("reels", tr("Solo este. Ni uno más.", "Only that one. No more."))
             return
         }
-        // content changes come in bursts, read the screen once they calm down
+        schedule(pkg, e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+    }
+
+    /** content changes come in bursts, read the screen once they calm down */
+    private fun schedule(pkg: String, fast: Boolean = true) {
         pendingPkg = pkg
         main.removeCallbacks(check)
-        main.postDelayed(check, if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) 60 else 180)
+        main.postDelayed(check, if (fast) 60 else 180)
     }
 
     private fun inspect(pkg: String) {
         val root = rootInActiveWindow ?: return
         if (root.packageName?.toString() != pkg) return
-        val pol = Policy.now()
         val s = Screen(root)
+        if (pkg in SETTINGS) {
+            if (Store.committed && s.dangerForArgos) {
+                lastAction = 0
+                block("guard", tr("Argos está bloqueado. Desactívalo desde la app.", "Argos is locked. Deactivate it from the app."))
+            }
+            return
+        }
+        val pol = Policy.now()
         if (pkg == Apps.INSTAGRAM && !s.igReelsViewer && !s.igDirectThread) dmReelSince = 0
         // reels that are allowed right now get friction
         friction.inReels(
@@ -132,6 +145,11 @@ class ArgosService : AccessibilityService() {
 
     companion object {
         @Volatile var running = false
+
+        private val SETTINGS = setOf(
+            "com.android.settings", "com.google.android.packageinstaller", "com.android.packageinstaller",
+            "com.samsung.android.packageinstaller", "com.miui.securitycenter", "com.coloros.safecenter",
+        )
 
         /** the endless feeds on the web */
         val WEB = Regex("""(^|[./])(youtube\.com/shorts|instagram\.com/(reels?|explore)|tiktok\.com|facebook\.com/reel)""")

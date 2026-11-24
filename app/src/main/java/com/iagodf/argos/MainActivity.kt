@@ -65,6 +65,12 @@ class ArgosApp : Application() {
 }
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        com.iagodf.argos.lock.Guard.start(this)
+        Store.applyDue()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val clear = android.graphics.Color.TRANSPARENT
