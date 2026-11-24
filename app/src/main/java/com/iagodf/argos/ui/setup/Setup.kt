@@ -62,6 +62,37 @@ fun setupDone(ctx: Context): Pair<Int, Int> {
     return steps.count { it } to steps.size
 }
 
+/** true when the blocking service is really running, refreshed every time you come back to the app */
+@Composable
+fun serviceOn(): Boolean {
+    val ctx = LocalContext.current
+    LifecycleResumeEffect(Unit) { SetupState.rev++; onPauseOrDispose { } }
+    SetupState.rev
+    return ArgosService.enabled(ctx)
+}
+
+/** red banner when the blocks are on but nothing can enforce them */
+@Composable
+fun PausedCard(modifier: Modifier = Modifier) {
+    if (serviceOn()) return
+    Card(modifier.padding(horizontal = 16.u).fillMaxWidth(), bg = Color(0xFFFFE9E6), shadow = false, onClick = { openSetup() }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(38.u).clip(CircleShape).background(C.Coral), contentAlignment = Alignment.Center) {
+                Icon(Ic.info, 20, Color.White, 2.2f)
+            }
+            Spacer(Modifier.width(12.u))
+            Column(Modifier.weight(1f)) {
+                T(tr("Argos está en pausa", "Argos is paused"), 15, 650)
+                T(
+                    tr("Activa su servicio de accesibilidad para que bloquee", "Turn on its accessibility service so it can block"),
+                    12, 400, C.Soft, Modifier.padding(top = 2.u),
+                )
+            }
+            Icon(Ic.chev, 18, C.Ink, 2f)
+        }
+    }
+}
+
 @Composable
 fun SetupCard() {
     val ctx = LocalContext.current
