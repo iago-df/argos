@@ -117,6 +117,7 @@ class LockBadge(ctx: Context, private val label: String? = null, private val max
     }
 
     fun pop() {
+        if (!ValueAnimator.areAnimatorsEnabled()) return
         scaleX = 0f; scaleY = 0f
         animate().scaleX(1f).scaleY(1f).setInterpolator(OvershootInterpolator(2.2f)).setDuration(380).start()
     }
@@ -232,7 +233,8 @@ class Shields(private val svc: AccessibilityService, private val ov: Overlay) {
             setOnTouchListener { _, e -> if (e.actionMasked == MotionEvent.ACTION_UP) { badge.shake(); ov.toast(Feed.Explore.toast, " · Argos") }; true }
         }
         if (runCatching { wm.addView(panel, placed(r)) }.isSuccess) {
-            panel.alpha = 0f; panel.animate().alpha(1f).setDuration(160).start()
+            if (ValueAnimator.areAnimatorsEnabled()) panel.alpha = 0f
+            panel.animate().alpha(1f).setDuration(160).start()
             badge.pop()
             cover = Placed(Feed.Explore, Rect(r), panel, badge)
             Store.count(Feed.Explore.key)
