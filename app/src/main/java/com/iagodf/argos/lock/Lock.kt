@@ -76,7 +76,13 @@ object Lock {
 
     /** if the accessibility service was turned off, turn it back on (needs WRITE_SECURE_SETTINGS from adb) */
     fun reviveService(ctx: Context): Boolean {
-        if (!Store.committed || ArgosService.enabled(ctx) || !canWriteSettings(ctx)) return false
+        if (!Store.committed) return false
+        return enableService(ctx)
+    }
+
+    /** turns the accessibility service on without going through settings, if adb granted WRITE_SECURE_SETTINGS */
+    fun enableService(ctx: Context): Boolean {
+        if (ArgosService.enabled(ctx) || !canWriteSettings(ctx)) return false
         return runCatching {
             val cr = ctx.contentResolver
             val me = ArgosService.component(ctx).flattenToString()
