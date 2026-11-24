@@ -71,6 +71,18 @@ fun BlocksScreen(openFriction: () -> Unit) {
             Ic.globe, tileBrush(0xFF4A5CFF, 0xFF8FB0FF), tr("Navegador", "Browser"),
             listOf(Triple(Block.Web, tr("Reels y Shorts en la web", "Reels and Shorts on the web"), null)),
         )
+        Gap(12)
+        Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 0, onClick = openFriction) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.u, vertical = 14.u), verticalAlignment = Alignment.CenterVertically) {
+                Tile(Ic.slow, brush = tileBrush(0xFFFF7A4D, 0xFFFFC06B))
+                Spacer(Modifier.width(12.u))
+                Column(Modifier.weight(1f)) {
+                    T(tr("Fricción", "Friction"), 16, 650)
+                    T(tr("Cada reel cuesta un poco más", "Every reel costs a bit more"), 12, 400, C.Muted, Modifier.padding(top = 2.u))
+                }
+                Icon(Ic.chev, 18, C.Chev, 2f)
+            }
+        }
     }
 }
 
