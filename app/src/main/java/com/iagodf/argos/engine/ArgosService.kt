@@ -46,6 +46,7 @@ class ArgosService : AccessibilityService() {
 
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         val pkg = e.packageName?.toString() ?: return
+        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && focusCheck(pkg)) return
         if (pkg != Apps.INSTAGRAM && pkg != Apps.YOUTUBE && pkg !in Apps.browsers) return
         if (pkg == Apps.INSTAGRAM && e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && dmReelSince > 0 &&
             SystemClock.elapsedRealtime() - dmReelSince > 1500
@@ -79,6 +80,27 @@ class ArgosService : AccessibilityService() {
             }
             Apps.YOUTUBE -> if (pol.shorts && s.ytShorts) block("shorts", tr("Shorts bloqueados por Argos", "Shorts blocked by Argos"))
         }
+    }
+
+    private var launchable: Set<String> = emptySet()
+    private var launchableAt = 0L
+
+    /** during focus, any real app that is not allowed goes back home */
+    private fun focusCheck(pkg: String): Boolean {
+        if (pkg == packageName) return false
+        val pol = Policy.now()
+        if (!pol.focus) return false
+        val now = SystemClock.elapsedRealtime()
+        if (now - launchableAt > 5 * 60_000L || launchable.isEmpty()) {
+            launchable = Apps.launchable(this).map { it.pkg }.toSet(); launchableAt = now
+        }
+        if (pkg !in launchable || pkg in Store.allowed() || pkg in Apps.alwaysAllowed(this)) return false
+        if (now - lastAction < 800) return true
+        lastAction = now
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        overlay.toast(tr("Focus: solo lo esencial", "Focus: only the essentials"))
+        Store.count("focus")
+        return true
     }
 
     /** true while the reel on screen was opened from a dm and that is allowed */
