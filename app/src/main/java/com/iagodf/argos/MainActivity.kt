@@ -50,6 +50,7 @@ import com.iagodf.argos.ui.ToastHost
 import com.iagodf.argos.ui.SheetHost
 import com.iagodf.argos.ui.focus.FocusScreen
 import com.iagodf.argos.ui.lock.LockScreen
+import com.iagodf.argos.ui.setup.SetupCard
 import com.iagodf.argos.ui.friction.FrictionScreen
 import com.iagodf.argos.ui.schedules.SchedulesScreen
 import com.iagodf.argos.ui.blocks.BlocksScreen
@@ -117,6 +118,7 @@ fun App() {
                     t == Tab.Home && s == Sub.Lock -> LockScreen()
                     t == Tab.Home -> HomeScreen(
                         openFocus = { tab = Tab.Focus }, openSchedules = { tab = Tab.Schedules }, openLock = { sub = Sub.Lock },
+                        top = { SetupCard() },
                     )
                     t == Tab.Focus -> FocusScreen()
                     t == Tab.Schedules -> SchedulesScreen()
