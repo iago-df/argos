@@ -25,6 +25,10 @@ class ArgosService : AccessibilityService() {
     private var pendingPkg: String? = null
     private val check = Runnable { pendingPkg?.let { inspect(it) } }
 
+    // a reel opened from a chat: it plays, but the next one does not
+    private var lastThreadAt = -10_000L
+    private var dmReelSince = 0L
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         Lang.load(this)
@@ -43,6 +47,13 @@ class ArgosService : AccessibilityService() {
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         val pkg = e.packageName?.toString() ?: return
         if (pkg != Apps.INSTAGRAM && pkg != Apps.YOUTUBE) return
+        if (pkg == Apps.INSTAGRAM && e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && dmReelSince > 0 &&
+            SystemClock.elapsedRealtime() - dmReelSince > 1500
+        ) {
+            dmReelSince = 0
+            block("reels", tr("Solo este. Ni uno más.", "Only that one. No more."))
+            return
+        }
         // content changes come in bursts, read the screen once they calm down
         pendingPkg = pkg
         main.removeCallbacks(check)
@@ -54,13 +65,24 @@ class ArgosService : AccessibilityService() {
         if (root.packageName?.toString() != pkg) return
         val pol = Policy.now()
         val s = Screen(root)
+        if (pkg == Apps.INSTAGRAM && !s.igReelsViewer && !s.igDirectThread) dmReelSince = 0
         when (pkg) {
             Apps.INSTAGRAM -> when {
+                s.igDirectThread -> { lastThreadAt = SystemClock.elapsedRealtime(); dmReelSince = 0 }
+                s.igReelsViewer && !s.igReelsTab && fromChat(pol.dmSingle) -> Unit
                 pol.reels && (s.igReelsViewer || s.igReelsTab) -> block("reels", tr("Reels bloqueados por Argos", "Reels blocked by Argos"))
                 pol.explore && s.igExplore -> block("explore", tr("Explorar bloqueado por Argos", "Explore blocked by Argos"))
             }
             Apps.YOUTUBE -> if (pol.shorts && s.ytShorts) block("shorts", tr("Shorts bloqueados por Argos", "Shorts blocked by Argos"))
         }
+    }
+
+    /** true while the reel on screen was opened from a dm and that is allowed */
+    private fun fromChat(allowed: Boolean): Boolean {
+        if (!allowed) return false
+        val now = SystemClock.elapsedRealtime()
+        if (dmReelSince == 0L && now - lastThreadAt < 5000) dmReelSince = now
+        return dmReelSince > 0
     }
 
     private fun block(kind: String, msg: String) {
