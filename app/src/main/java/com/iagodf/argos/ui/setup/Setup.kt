@@ -115,6 +115,47 @@ fun SetupCard() {
     }
 }
 
+/** system pages, always opened fresh so an old settings screen does not come back instead */
+object SystemPages {
+    private fun go(ctx: Context, i: Intent) = runCatching {
+        ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+    }.isSuccess
+
+    /**
+     * accessibility with Argos highlighted in the list. android does not let other apps open the switch
+     * itself, this is as close as it gets. with the adb permission it is switched on right here instead
+     */
+    fun accessibility(ctx: Context) {
+        if (Lock.enableService(ctx)) {
+            SetupState.rev++
+            Toaster.show(tr("Servicio activado", "Service turned on"))
+            return
+        }
+        val key = ArgosService.component(ctx).flattenToString()
+        val i = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            .putExtra(":settings:fragment_args_key", key)
+            .putExtra(":settings:show_fragment_args", android.os.Bundle().apply { putString(":settings:fragment_args_key", key) })
+        go(ctx, i)
+    }
+
+    fun appInfo(ctx: Context) =
+        go(ctx, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", ctx.packageName, null)))
+
+    fun usage(ctx: Context) = go(ctx, Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+
+    /**
+     * android 13+ marks apps installed from a downloaded file as "restricted": their accessibility switch
+     * is greyed out until you allow it from the app info page. apps can not read that flag, but they can
+     * read how they were installed, which is what android looks at
+     */
+    fun sideloaded(ctx: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 33) return false
+        val src = runCatching { ctx.packageManager.getInstallSourceInfo(ctx.packageName).packageSource }.getOrNull()
+        return src == android.content.pm.PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE ||
+            src == android.content.pm.PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE
+    }
+}
+
 fun openSetup() = Sheets.open(tr("Configurar", "Setup")) { SetupBody() }
 
 @Composable
@@ -124,16 +165,18 @@ private fun SetupBody() {
     SetupState.rev
     val notif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { SetupState.rev++ }
 
+    val serviceOk = ArgosService.enabled(ctx)
     Step(
         1, tr("Servicio de accesibilidad", "Accessibility service"),
-        tr("Para ver Reels y Shorts en pantalla y sacarte de ahí. Busca Argos y actívalo.", "To see Reels and Shorts on screen and get you out. Find Argos and turn it on."),
-        ArgosService.enabled(ctx),
-    ) { ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        tr("Para ver Reels y Shorts y sacarte de ahí. Te llevo a la lista: toca Argos y actívalo.", "To see Reels and Shorts and get you out. It opens the list: tap Argos and turn it on."),
+        serviceOk,
+    ) { SystemPages.accessibility(ctx) }
+    if (!serviceOk && SystemPages.sideloaded(ctx)) RestrictedGuide()
     Step(
         2, tr("Acceso de uso", "Usage access"),
         tr("Para calcular el tiempo que recuperas.", "To work out the time you recover."),
         Usage.granted(ctx),
-    ) { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    ) { SystemPages.usage(ctx) }
     Step(
         3, tr("Notificaciones", "Notifications"),
         tr("Una notificación discreta mantiene a Argos despierto.", "A quiet notification keeps Argos awake."),
@@ -162,7 +205,7 @@ private fun SetupBody() {
 }
 
 @Composable
-private fun Step(n: Int, title: String, sub: String, ok: Boolean, open: () -> Unit) {
+private fun Step(n: Int, title: String, sub: String, ok: Boolean, button: String = tr("Abrir", "Open"), open: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 10.u), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(32.u).clip(CircleShape).background(if (ok) C.Blue else C.Bg),
@@ -176,7 +219,40 @@ private fun Step(n: Int, title: String, sub: String, ok: Boolean, open: () -> Un
         Spacer(Modifier.width(10.u))
         if (!ok) Box(
             Modifier.clip(RoundedCornerShape(16.u)).background(C.Ink).tap(onClick = open).padding(horizontal = 14.u, vertical = 8.u),
-        ) { T(tr("Abrir", "Open"), 13, 600, Color.White) }
+        ) { T(button, 13, 600, Color.White) }
+    }
+}
+
+/** what the "restricted setting" warning is and the taps that allow it */
+@Composable
+private fun RestrictedGuide() {
+    val ctx = LocalContext.current
+    Column(
+        Modifier.fillMaxWidth().padding(start = 44.u, bottom = 8.u).clip(RoundedCornerShape(18.u)).background(C.Bg).padding(14.u),
+        verticalArrangement = Arrangement.spacedBy(8.u),
+    ) {
+        T(tr("¿Sale en gris o dice \"acceso denegado\"?", "Greyed out, or \"access denied\"?"), 14, 650)
+        T(
+            tr(
+                "Android lo hace con cualquier app que no venga de la Play Store y avisa de que \"puede poner en riesgo tus datos\". Argos no envía nada fuera de tu móvil. Para permitirlo:",
+                "Android does it with any app that does not come from the Play Store and warns it \"could put your data at risk\". Argos sends nothing off your phone. To allow it:",
+            ),
+            13, 400, C.Body, lh = 1.35f,
+        )
+        listOf(
+            tr("Abre la información de Argos con el botón de abajo.", "Open Argos app info with the button below."),
+            tr("Toca ⋮ arriba a la derecha → Permitir ajustes restringidos, y confirma.", "Tap ⋮ at the top right → Allow restricted settings, and confirm."),
+            tr("Vuelve y toca Abrir otra vez: ya se podrá activar.", "Come back and tap Open again: now it can be turned on."),
+        ).forEachIndexed { i, t ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.u)) {
+                T("${i + 1}.", 13, 700, C.Blue)
+                T(t, 13, 500, C.Ink, lh = 1.35f)
+            }
+        }
+        Box(
+            Modifier.padding(top = 4.u).clip(RoundedCornerShape(16.u)).background(Color.White).tap { SystemPages.appInfo(ctx) }
+                .padding(horizontal = 14.u, vertical = 9.u),
+        ) { T(tr("Información de Argos", "Argos app info"), 13, 600, C.Blue) }
     }
 }
 
@@ -192,7 +268,8 @@ private fun Command(cmd: String, ok: Boolean) {
             .padding(horizontal = 14.u, vertical = 12.u),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.u),
     ) {
-        T(cmd, 11, 500, Color.White.copy(alpha = .9f), Modifier.weight(1f), lh = 1.35f)
+        T(cmd.replace(" android.permission", "\nandroid.permission"), 11, 500, Color.White.copy(alpha = .9f), Modifier.weight(1f), lh = 1.35f)
         if (ok) Icon(Ic.check, 16, C.BlueSoft, 2.6f) else T(tr("Copiar", "Copy"), 12, 600, C.BlueSoft)
     }
 }
+
