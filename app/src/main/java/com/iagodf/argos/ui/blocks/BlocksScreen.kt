@@ -56,6 +56,10 @@ fun BlocksScreen(openFriction: () -> Unit) {
         Gap(10)
         Subtitle(tr("Elige qué desaparece de tus apps", "Choose what disappears from your apps"))
         Gap(18)
+        if (!com.iagodf.argos.ui.setup.serviceOn()) {
+            com.iagodf.argos.ui.setup.PausedCard()
+            Gap(12)
+        }
         Group(
             Ic.camera, tileBrush(0xFFFF6F91, 0xFFFFB36B), "Instagram",
             listOf(

@@ -72,11 +72,13 @@ fun HomeScreen(openFocus: () -> Unit, openSchedules: () -> Unit, openLock: () ->
         T(fmtMinutes(minutes), 66, 650, brush = C.blueText, ls = -.05f, lh = 1.1f, modifier = Modifier.padding(start = 22.u, top = 2.u))
         Gap(12)
 
+        val running = com.iagodf.argos.ui.setup.serviceOn()
         // dark card: what is blocked right now
         Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), bg = C.Ink, padding = 18, onClick = openLock) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 T(tr("Bloqueos activos", "Active blocks"), 16, 600, Color.White, Modifier.weight(1f))
-                if (Store.committed) Pill(tr("Inquebrantable", "Unbreakable"), Color.White.copy(alpha = .12f), Color.White, Ic.shield, C.BlueSoft)
+                if (!running) Pill(tr("En pausa", "Paused"), C.Coral.copy(alpha = .2f), Color(0xFFFF9A90), Ic.info, Color(0xFFFF9A90))
+                else if (Store.committed) Pill(tr("Inquebrantable", "Unbreakable"), Color.White.copy(alpha = .12f), Color.White, Ic.shield, C.BlueSoft)
                 else Pill(tr("Sin candado", "Not locked"), Color.White.copy(alpha = .08f), Color.White.copy(alpha = .6f), Ic.lock, Color.White.copy(alpha = .6f))
             }
             Row(Modifier.padding(top = 16.u), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.u)) {
@@ -85,10 +87,10 @@ fun HomeScreen(openFocus: () -> Unit, openSchedules: () -> Unit, openLock: () ->
                     Triple(Ic.tv, "Shorts", pol.shorts),
                     Triple(Ic.globe, tr("Webs", "Web"), pol.web),
                 )
-                val share = (items.count { it.third } + (if (pol.explore) 1 else 0) + (if (pol.focus) 1 else 0)) / 5f
-                Ring(share.coerceAtLeast(.04f), 92, 9, Color.White.copy(alpha = .12f), C.peachBlue)
+                val share = if (!running) 0f else (items.count { it.third } + (if (pol.explore) 1 else 0) + (if (pol.focus) 1 else 0)) / 5f
+                Ring(if (running) share.coerceAtLeast(.04f) else 0f, 92, 9, Color.White.copy(alpha = .12f), C.peachBlue)
                 Column {
-                    items.forEach { (icon, label, on) -> BlockLine(icon, label, on) }
+                    items.forEach { (icon, label, on) -> BlockLine(icon, label, on, running) }
                 }
             }
         }
@@ -142,11 +144,16 @@ fun HomeScreen(openFocus: () -> Unit, openSchedules: () -> Unit, openLock: () ->
 }
 
 @Composable
-private fun BlockLine(icon: IconData, label: String, on: Boolean) {
+private fun BlockLine(icon: IconData, label: String, on: Boolean, running: Boolean) {
     Row(Modifier.height(26.u), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.u)) {
         Icon(icon, 16, Color.White, 2f)
         T(label, 14, 500, Color.White.copy(alpha = .85f))
-        T(if (on) tr("bloqueado", "blocked") else tr("permitido", "allowed"), 14, 500, if (on) C.BlueSoft else Color.White.copy(alpha = .4f), Modifier.padding(start = 6.u))
+        val (txt, col) = when {
+            !running -> tr("en pausa", "paused") to Color(0xFFFF9A90)
+            on -> tr("bloqueado", "blocked") to C.BlueSoft
+            else -> tr("permitido", "allowed") to Color.White.copy(alpha = .4f)
+        }
+        T(txt, 14, 500, col, Modifier.padding(start = 6.u))
     }
 }
 

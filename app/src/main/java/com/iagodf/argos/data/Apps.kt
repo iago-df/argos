@@ -23,6 +23,18 @@ object Apps {
         "com.duckduckgo.mobile.android", "com.kiwibrowser.browser", "com.vivaldi.browser", "app.vanadium.browser",
     )
 
+    private var webApps: Set<String>? = null
+
+    /** the known browsers plus any app that opens web links */
+    fun isBrowser(ctx: Context, pkg: String): Boolean {
+        if (pkg in browsers) return true
+        val set = webApps ?: runCatching {
+            ctx.packageManager.queryIntentActivities(Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com")), PackageManager.MATCH_ALL)
+                .map { it.activityInfo.packageName }.toSet() - setOf(INSTAGRAM, YOUTUBE)
+        }.getOrDefault(emptySet()).also { webApps = it }
+        return pkg in set
+    }
+
     /** apps that are never sent home during focus: the phone itself has to keep working */
     fun alwaysAllowed(ctx: Context): Set<String> = buildSet {
         add(ctx.packageName)

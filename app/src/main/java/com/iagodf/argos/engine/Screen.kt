@@ -11,6 +11,8 @@ private val DANGER = listOf(
     "Use Argos", "Usar Argos", "Deactivate", "Desactivar", "Device admin", "Administrador", "Stop Argos", "¿Detener", "Turn off",
 )
 
+private val DOMAIN = Regex("""^[\w.-]+\.[a-z]{2,}(/|$)""")
+
 class Screen(root: AccessibilityNodeInfo?, limit: Int = 600) {
     val ids = HashSet<String>()
     val selected = HashSet<String>()
@@ -68,10 +70,12 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 600) {
 
     /** what the address bar of the browser says, without the scheme */
     val url: String?
-        get() = textOf(
-            "url_bar", "mozac_browser_toolbar_url_view", "location_bar_edit_text", "url_field", "omnibarTextInput",
-            "search_box", "address_bar_edit_text", "url",
-        )?.trim()?.lowercase()?.removePrefix("https://")?.removePrefix("http://")
+        get() = (
+            textOf(
+                "url_bar", "mozac_browser_toolbar_url_view", "location_bar_edit_text", "url_field", "omnibarTextInput",
+                "search_box", "address_bar_edit_text", "url", "toolbar_url", "addressbarEdit", "url_text",
+            ) ?: texts.firstOrNull { (id, t) -> ("url" in id.lowercase() || "address" in id.lowercase() || "location" in id.lowercase()) && DOMAIN.containsMatchIn(t) }?.second
+            )?.trim()?.lowercase()?.removePrefix("https://")?.removePrefix("http://")
 
     // ---------- self protection ----------
 
@@ -88,6 +92,6 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 600) {
     val ytShorts: Boolean
         get() = has(
             "reel_player_page_container", "reel_recycler", "reel_watch_player", "shorts_player_container", "reel_player_overlay",
-            "reel_time_bar",
-        ) || selectedDescs.any { it.equals("Shorts", true) }
+            "reel_time_bar", "shorts_shelf_item", "reel_watch_fragment_root", "reel_progress_bar", "reel_dyn_remix",
+        ) || hasPart("reel_player") || hasPart("shorts_player") || selectedDescs.any { it.equals("Shorts", true) }
 }
