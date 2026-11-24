@@ -57,8 +57,8 @@ class Overlay(private val svc: AccessibilityService) {
         PixelFormat.TRANSLUCENT,
     )
 
-    /** "Reels blocked · Argos", the same dark pill as the video */
-    fun toast(text: String) = main.post {
+    /** "Reels blocked · Argos", the same dark pill as the video. the accent part goes in the soft blue */
+    fun toast(text: String, accent: String? = null) = main.post {
         toast?.let { runCatching { wm.removeView(it) } }
         val pill = LinearLayout(svc).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -66,9 +66,12 @@ class Overlay(private val svc: AccessibilityService) {
             background = GradientDrawable().apply { cornerRadius = 20 * dp; setColor(Color.argb(235, 21, 19, 29)) }
             setPadding(px(14f), px(12f), px(18f), px(12f))
             elevation = 12 * dp
-            addView(LockIcon(svc, Color.rgb(159, 176, 255)), LinearLayout.LayoutParams(px(17f), px(17f)).apply { marginEnd = px(9f) })
+            addView(LockIcon(svc, Color.rgb(159, 176, 255)), LinearLayout.LayoutParams(px(18f), px(18f)).apply { marginEnd = px(9f) })
             addView(TextView(svc).apply {
-                this.text = text; setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                this.text = android.text.SpannableStringBuilder(text).apply {
+                    if (accent != null) append(accent, android.text.style.ForegroundColorSpan(Color.rgb(159, 176, 255)), 0)
+                }
+                setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 typeface = Typeface.create(inter, 600, false)
             })
         }
