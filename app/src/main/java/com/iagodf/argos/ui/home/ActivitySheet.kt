@@ -35,7 +35,7 @@ fun ActivitySheet(open: Boolean, onClose: () -> Unit) {
         )
         Column(Modifier.fillMaxWidth()) {
             rows.forEachIndexed { i, (icon, label, key) ->
-                ItemRow(label, divider = i > 0, lead = { Tile(icon, C.BlueTint, tint = C.Blue, size = 34, radius = 11, iconSize = 17) }) {
+                ItemRow(label, divider = i > 0, lead = { Tile(icon, C.Blue, size = 34) }) {
                     T(Store.blockedToday(key).toString(), 18, 700, if (Store.blockedToday(key) > 0) C.Blue else C.Chev)
                 }
             }

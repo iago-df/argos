@@ -119,7 +119,7 @@ fun LockScreen() {
 
 @Composable
 private fun Protect(icon: IconData, label: String, on: Boolean, divider: Boolean) {
-    ItemRow(label, divider = divider, lead = { Tile(icon, Color(0xFFF4F2FA), tint = C.Ink, size = 34, radius = 11, iconSize = 17) }) {
+    ItemRow(label, divider = divider, lead = { Tile(icon, C.Ink, size = 34) }) {
         Icon(Ic.lock, 17, if (on && Store.committed) C.Blue else C.Chev, 2f)
     }
 }

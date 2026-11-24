@@ -124,7 +124,7 @@ fun HomeScreen(openFocus: () -> Unit, openSchedules: () -> Unit, openLock: () ->
         val next = Policy.next()
         Card(Modifier.padding(horizontal = 16.u).fillMaxWidth().height(68.u), padding = 0, onClick = openSchedules) {
             Row(Modifier.fillMaxWidth().height(68.u).padding(horizontal = 16.u), verticalAlignment = Alignment.CenterVertically) {
-                Tile(Ic.clock, C.BlueTint, tint = C.Blue)
+                Tile(Ic.clock, C.Blue)
                 Spacer(Modifier.width(12.u))
                 Column(Modifier.weight(1f)) {
                     T(tr("Próximo bloqueo", "Next block"), 14, 600)
@@ -160,7 +160,7 @@ private fun BlockLine(icon: IconData, label: String, on: Boolean, running: Boole
 @Composable
 private fun SmallCard(modifier: Modifier, brush: Brush, icon: IconData, tile: Color, title: String, sub: String, onClick: () -> Unit) {
     Card(modifier.heightIn(min = 104.u), brush = brush, onClick = onClick) {
-        Tile(icon, tile, size = 34, radius = 11, iconSize = 17)
+        Tile(icon, tile, size = 36)
         T(title, 16, 650, modifier = Modifier.padding(top = 10.u), lines = 1)
         T(sub, 12, 400, C.Soft, lines = 1)
     }

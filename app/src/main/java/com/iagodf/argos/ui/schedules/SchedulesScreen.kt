@@ -150,7 +150,7 @@ private fun ScheduleCard(s: Schedule) {
     val wait = Store.pendingFor("sched:${s.id}")
     Card(Modifier.padding(horizontal = 16.u).fillMaxWidth().height(80.u), padding = 0, onClick = { openEditor(s) }) {
         Row(Modifier.fillMaxWidth().height(80.u).padding(horizontal = 16.u), verticalAlignment = Alignment.CenterVertically) {
-            Tile(icon, bg, tint = tint, size = 44, radius = 14, iconSize = 21)
+            Tile(icon, if (tint == Color.White) bg else tint, size = 44)
             Spacer(Modifier.width(12.u))
             Column(Modifier.weight(1f)) {
                 T(s.label, 15, 650, lines = 1)
