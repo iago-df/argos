@@ -48,8 +48,15 @@ object Usage {
         return total
     }
 
+    private var cached: Pair<Long, Long>? = null // install time to baseline, it never changes
+
     /** average daily feed time in the 7 days before Argos was installed */
     fun baseline(ctx: Context): Long {
+        cached?.let { if (it.first == Store.installedAt) return it.second }
+        return computeBaseline(ctx).also { cached = Store.installedAt to it }
+    }
+
+    private fun computeBaseline(ctx: Context): Long {
         val inst = java.time.Instant.ofEpochMilli(Store.installedAt).atZone(ZoneId.systemDefault()).toLocalDate()
         val days = (1..7).map { inst.minusDays(it.toLong()) }
         val totals = days.map { d -> feedTime(ctx, ms(d.atStartOfDay()), ms(d.plusDays(1).atStartOfDay())) }

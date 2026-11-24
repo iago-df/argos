@@ -55,7 +55,10 @@ fun HomeScreen(openFocus: () -> Unit, openSchedules: () -> Unit, openLock: () ->
     LaunchedEffect(Unit) { while (true) { delay(60_000); tick++ } }
     tick
     val pol = Policy.now()
-    val minutes = remember(tick, Store.rev.intValue) { Usage.recoveredMinutes(ctx) }
+    // usage stats are slow to read, so off the main thread
+    val minutes by androidx.compose.runtime.produceState(Store.blockedToday() * 4, tick, Store.rev.intValue) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Usage.recoveredMinutes(ctx) }
+    }
 
     Column {
         top()
