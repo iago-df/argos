@@ -27,8 +27,14 @@ class ArgosService : AccessibilityService() {
     private lateinit var overlay: Overlay
     private lateinit var friction: FrictionEngine
     private var lastAction = 0L
-    private var pendingPkg: String? = null
-    private val check = Runnable { pendingPkg?.let { inspect(it) } }
+    @Volatile private var pendingPkg: String? = null
+    private var queued = false
+    private var lastCheck = 0L
+    private val check = Runnable {
+        queued = false
+        lastCheck = SystemClock.elapsedRealtime()
+        pendingPkg?.let { safe { inspect(it) } }
+    }
 
     // a reel opened from a chat: it plays, but the next one does not
     private var lastThreadAt = -10_000L
@@ -55,7 +61,12 @@ class ArgosService : AccessibilityService() {
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         val pkg = e.packageName?.toString() ?: return
         val type = e.eventType
-        work.post { handle(pkg, type) }
+        work.post { safe { handle(pkg, type) } }
+    }
+
+    /** an exception in an accessibility service makes android switch it off for good, so nothing escapes */
+    private inline fun safe(block: () -> Unit) {
+        try { block() } catch (t: Throwable) { android.util.Log.w("Argos", "engine", t) }
     }
 
     private fun handle(pkg: String, type: Int) {
@@ -64,7 +75,7 @@ class ArgosService : AccessibilityService() {
         val feedApp = pkg == Apps.INSTAGRAM || pkg == Apps.YOUTUBE
         if (!feedApp && pkg != packageName && type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) friction.inReels(false)
         if (feedApp && type == AccessibilityEvent.TYPE_VIEW_SCROLLED && friction.active) friction.swiped()
-        if (!feedApp && pkg !in Apps.browsers) return
+        if (!feedApp && !Apps.isBrowser(this, pkg)) return
         if (pkg == Apps.INSTAGRAM && type == AccessibilityEvent.TYPE_VIEW_SCROLLED && dmReelSince > 0 &&
             SystemClock.elapsedRealtime() - dmReelSince > 1500
         ) {
@@ -75,16 +86,29 @@ class ArgosService : AccessibilityService() {
         schedule(pkg, type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
     }
 
-    /** content changes come in bursts, read the screen once they calm down */
+    /**
+     * content changes come in bursts and, while a video plays, they never stop. so the screen is read
+     * at most every 250 ms instead of waiting for calm (that wait never ended on a playing reel)
+     */
     private fun schedule(pkg: String, fast: Boolean = true) {
         pendingPkg = pkg
-        work.removeCallbacks(check)
-        work.postDelayed(check, if (fast) 60 else 180)
+        if (queued) return
+        queued = true
+        val since = SystemClock.elapsedRealtime() - lastCheck
+        work.postDelayed(check, if (fast) 40 else (250 - since).coerceIn(0, 250))
+    }
+
+    /** the window of that app. the active one can be the keyboard or a system bar on real phones */
+    private fun rootOf(pkg: String): android.view.accessibility.AccessibilityNodeInfo? {
+        rootInActiveWindow?.let { if (it.packageName?.toString() == pkg) return it }
+        return windows.asSequence()
+            .filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
+            .mapNotNull { it.root }
+            .firstOrNull { it.packageName?.toString() == pkg }
     }
 
     private fun inspect(pkg: String) {
-        val root = rootInActiveWindow ?: return
-        if (root.packageName?.toString() != pkg) return
+        val root = rootOf(pkg) ?: return
         val s = Screen(root)
         if (pkg in SETTINGS) {
             if (Store.committed && s.dangerForArgos) {
@@ -107,11 +131,11 @@ class ArgosService : AccessibilityService() {
                 pol.reels && (s.igReelsViewer || s.igReelsTab) -> block("reels", tr("Reels bloqueados por Argos", "Reels blocked by Argos"))
                 pol.explore && s.igExplore -> block("explore", tr("Explorar bloqueado por Argos", "Explore blocked by Argos"))
             }
-            in Apps.browsers -> {
+            Apps.YOUTUBE -> if (pol.shorts && s.ytShorts) block("shorts", tr("Shorts bloqueados por Argos", "Shorts blocked by Argos"))
+            else -> {
                 val url = s.url
                 if (pol.web && url != null && WEB.containsMatchIn(url)) block("web", tr("Bloqueado en la web por Argos", "Blocked on the web by Argos"))
             }
-            Apps.YOUTUBE -> if (pol.shorts && s.ytShorts) block("shorts", tr("Shorts bloqueados por Argos", "Shorts blocked by Argos"))
         }
     }
 
