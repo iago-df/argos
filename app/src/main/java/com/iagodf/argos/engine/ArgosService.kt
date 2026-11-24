@@ -4,7 +4,6 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context
 import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
@@ -19,7 +18,12 @@ import com.iagodf.argos.data.tr
  * of reels, explore and shorts with a back press and a small toast
  */
 class ArgosService : AccessibilityService() {
-    private val main = Handler(Looper.getMainLooper())
+    /*
+     * everything runs on its own thread. the service lives in the app process, so reading a window
+     * of Argos itself from the main thread would wait on the main thread forever
+     */
+    private val thread = android.os.HandlerThread("argos-engine").apply { start() }
+    private val work = Handler(thread.looper)
     private lateinit var overlay: Overlay
     private lateinit var friction: FrictionEngine
     private var lastAction = 0L
@@ -42,6 +46,7 @@ class ArgosService : AccessibilityService() {
 
     override fun onDestroy() {
         running = false
+        thread.quitSafely()
         super.onDestroy()
     }
 
@@ -49,27 +54,32 @@ class ArgosService : AccessibilityService() {
 
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         val pkg = e.packageName?.toString() ?: return
-        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && focusCheck(pkg)) return
+        val type = e.eventType
+        work.post { handle(pkg, type) }
+    }
+
+    private fun handle(pkg: String, type: Int) {
+        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && focusCheck(pkg)) return
         if (pkg in SETTINGS && Store.committed) { schedule(pkg); return }
         val feedApp = pkg == Apps.INSTAGRAM || pkg == Apps.YOUTUBE
-        if (!feedApp && pkg != packageName && e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) friction.inReels(false)
-        if (feedApp && e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && friction.active) friction.swiped()
+        if (!feedApp && pkg != packageName && type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) friction.inReels(false)
+        if (feedApp && type == AccessibilityEvent.TYPE_VIEW_SCROLLED && friction.active) friction.swiped()
         if (!feedApp && pkg !in Apps.browsers) return
-        if (pkg == Apps.INSTAGRAM && e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && dmReelSince > 0 &&
+        if (pkg == Apps.INSTAGRAM && type == AccessibilityEvent.TYPE_VIEW_SCROLLED && dmReelSince > 0 &&
             SystemClock.elapsedRealtime() - dmReelSince > 1500
         ) {
             dmReelSince = 0
             block("reels", tr("Solo este. Ni uno más.", "Only that one. No more."))
             return
         }
-        schedule(pkg, e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+        schedule(pkg, type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
     }
 
     /** content changes come in bursts, read the screen once they calm down */
     private fun schedule(pkg: String, fast: Boolean = true) {
         pendingPkg = pkg
-        main.removeCallbacks(check)
-        main.postDelayed(check, if (fast) 60 else 180)
+        work.removeCallbacks(check)
+        work.postDelayed(check, if (fast) 60 else 180)
     }
 
     private fun inspect(pkg: String) {
