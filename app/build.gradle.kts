@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,9 +18,21 @@ android {
         versionName = "0.1.0"
     }
 
+    // release key lives outside the repo, in keystore.properties
+    val keys = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
+    signingConfigs {
+        if (keys != null) create("release") {
+            storeFile = rootProject.file(keys.getProperty("storeFile"))
+            storePassword = keys.getProperty("storePassword")
+            keyAlias = keys.getProperty("keyAlias")
+            keyPassword = keys.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keys != null) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
