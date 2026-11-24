@@ -1,0 +1,18 @@
+# promo video source (not in the repo)
+promo/
+
+# android
+*.iml
+.gradle/
+.kotlin/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.jks
+*.keystore
