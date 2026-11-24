@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Argos</string>
+    <string name="service_label">Argos</string>
+    <string name="service_desc">Argos reads what is on screen only to get you out of Reels, Explore and Shorts, keep Focus mode and protect itself. Nothing leaves your phone.</string>
 </resources>
