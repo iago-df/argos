@@ -46,7 +46,7 @@ class ArgosService : AccessibilityService() {
 
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         val pkg = e.packageName?.toString() ?: return
-        if (pkg != Apps.INSTAGRAM && pkg != Apps.YOUTUBE) return
+        if (pkg != Apps.INSTAGRAM && pkg != Apps.YOUTUBE && pkg !in Apps.browsers) return
         if (pkg == Apps.INSTAGRAM && e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && dmReelSince > 0 &&
             SystemClock.elapsedRealtime() - dmReelSince > 1500
         ) {
@@ -73,6 +73,10 @@ class ArgosService : AccessibilityService() {
                 pol.reels && (s.igReelsViewer || s.igReelsTab) -> block("reels", tr("Reels bloqueados por Argos", "Reels blocked by Argos"))
                 pol.explore && s.igExplore -> block("explore", tr("Explorar bloqueado por Argos", "Explore blocked by Argos"))
             }
+            in Apps.browsers -> {
+                val url = s.url
+                if (pol.web && url != null && WEB.containsMatchIn(url)) block("web", tr("Bloqueado en la web por Argos", "Blocked on the web by Argos"))
+            }
             Apps.YOUTUBE -> if (pol.shorts && s.ytShorts) block("shorts", tr("Shorts bloqueados por Argos", "Shorts blocked by Argos"))
         }
     }
@@ -96,6 +100,9 @@ class ArgosService : AccessibilityService() {
 
     companion object {
         @Volatile var running = false
+
+        /** the endless feeds on the web */
+        val WEB = Regex("""(^|[./])(youtube\.com/shorts|instagram\.com/(reels?|explore)|tiktok\.com|facebook\.com/reel)""")
 
         fun component(ctx: Context) = ComponentName(ctx, ArgosService::class.java)
 
