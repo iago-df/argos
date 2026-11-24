@@ -16,3 +16,7 @@ captures/
 *.aab
 *.jks
 *.keystore
+
+# release signing (never in the repo)
+keystore.properties
+release/

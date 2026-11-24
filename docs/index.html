@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argos · promo video</title>
+<meta name="description" content="Take back your attention. The Argos promo video.">
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #15131d; --muted: #8d89a0; --blue: #4a5cff; --line: rgba(21,19,29,.08); }
+  * { box-sizing: border-box; margin: 0; }
+  body { color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 40px 16px;
+         background: radial-gradient(circle at 90% -5%, #ffd7c4 0, rgba(255,215,196,0) 45%),
+                     radial-gradient(circle at -10% 25%, #d9d2ff 0, rgba(217,210,255,0) 50%),
+                     radial-gradient(circle at 50% 110%, #d6e2ff 0, rgba(214,226,255,0) 55%), #f6f5fb; }
+  header { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  header img { width: 120px; height: auto; }
+  h1 { font-size: 56px; font-weight: 700; letter-spacing: -.05em; margin-top: -6px; }
+  header p { color: var(--muted); font-size: 18px; font-weight: 300; letter-spacing: -.01em; margin-top: 4px; }
+  header p em { font-family: 'Instrument Serif', serif; font-size: 21px; background: linear-gradient(100deg, #5d7bff, #9a7bff);
+                -webkit-background-clip: text; background-clip: text; color: transparent; padding: 0 .08em; }
+  .player { width: min(1100px, 100%); margin-top: 32px; border-radius: 26px; overflow: hidden; background: #000; aspect-ratio: 16 / 9;
+            border: 1px solid rgba(255,255,255,.9); box-shadow: 0 40px 100px -30px rgba(50,60,160,.45); }
+  video { width: 100%; height: 100%; display: block; background: #000; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 28px; }
+  a.btn { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 24px; border-radius: 26px; text-decoration: none;
+          font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+  a.primary { background: var(--ink); color: #fff; }
+  a.ghost { color: var(--ink); background: rgba(255,255,255,.7); border: 1px solid rgba(255,255,255,.95); }
+  a.btn:hover { opacity: .85; }
+  footer { margin-top: auto; padding-top: 44px; font-size: 12px; letter-spacing: .04em; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+  <header>
+    <img src="logo.png" alt="">
+    <h1>Argos</h1>
+    <p>Take back your <em>attention.</em></p>
+  </header>
+
+  <div class="player">
+    <!-- the video lives in the latest GitHub release, not in the repo -->
+    <video controls playsinline preload="metadata" poster="poster.jpg"
+           src="https://github.com/iago-df/argos/releases/latest/download/Argos-promo.mp4">
+      Your browser can not play this video.
+    </video>
+  </div>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/iago-df/argos/releases/latest/download/Argos.apk">⬇ Download for Android</a>
+    <a class="btn ghost" href="https://github.com/iago-df/argos">View on GitHub</a>
+  </div>
+
+  <footer>82 s · with sound · sample data</footer>
+</body>
+</html>
