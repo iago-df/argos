@@ -73,7 +73,7 @@ fun FrictionScreen() {
         var drag by remember(f.maxPause) { mutableIntStateOf(f.maxPause) }
         Card(Modifier.padding(horizontal = 16.u).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Tile(Ic.clock, C.BlueTint, tint = C.Blue)
+                Tile(Ic.clock, C.Blue)
                 Spacer(Modifier.width(10.u))
                 T(tr("Pausa entre reels", "Pause between reels"), 15, 650, modifier = Modifier.weight(1f))
                 T("+$drag s", 18, 700, C.Blue)
@@ -93,7 +93,7 @@ fun FrictionScreen() {
         Gap(14)
         Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 0) {
             Column(Modifier.padding(horizontal = 16.u, vertical = 4.u)) {
-                Line(Ic.drop, Color(0xFFF2F2F5), Color(0xFF555555), tr("Blanco y negro", "Black and white"), tr("Pierde color poco a poco", "Loses colour little by little"), false, f.gray) {
+                Line(Ic.drop, Color(0xFFF2F2F5), Color(0xFF6F6A88), tr("Blanco y negro", "Black and white"), tr("Pierde color poco a poco", "Loses colour little by little"), false, f.gray) {
                     save(f.copy(gray = it))
                 }
                 Line(Ic.slow, Color(0xFFFFF0E8), C.Orange, tr("Deslizar más lento", "Slower swiping"), tr("Cada vez cuesta más", "Every time it costs more"), true, f.slow) {
@@ -114,7 +114,7 @@ fun FrictionScreen() {
 
 @Composable
 private fun Line(icon: IconData, bg: Color, tint: Color, title: String, sub: String, divider: Boolean, on: Boolean, set: (Boolean) -> Unit) {
-    ItemRow(title, sub, divider, lead = { Tile(icon, bg, tint = tint) }) { Toggle(on, onChange = set) }
+    ItemRow(title, sub, divider, lead = { Tile(icon, tint) }) { Toggle(on, onChange = set) }
 }
 
 @Composable

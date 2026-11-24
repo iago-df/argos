@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import com.iagodf.argos.data.Block
 import com.iagodf.argos.data.Lang
 import com.iagodf.argos.data.Store
@@ -61,7 +62,7 @@ fun BlocksScreen(openFriction: () -> Unit) {
             Gap(12)
         }
         Group(
-            Ic.camera, tileBrush(0xFFFF6F91, 0xFFFFB36B), "Instagram",
+            Ic.camera, Color(0xFFFF5C8A), "Instagram",
             listOf(
                 Triple(Block.IgReels, "Reels", null),
                 Triple(Block.IgExplore, tr("Explorar", "Explore"), null),
@@ -69,16 +70,16 @@ fun BlocksScreen(openFriction: () -> Unit) {
             ),
         )
         Gap(12)
-        Group(Ic.tv, tileBrush(0xFFFF5F5F, 0xFFFF9A8A), "YouTube", listOf(Triple(Block.YtShorts, "Shorts", null)))
+        Group(Ic.tv, Color(0xFFFF4D4D), "YouTube", listOf(Triple(Block.YtShorts, "Shorts", null)))
         Gap(12)
         Group(
-            Ic.globe, tileBrush(0xFF4A5CFF, 0xFF8FB0FF), tr("Navegador", "Browser"),
+            Ic.globe, C.Blue, tr("Navegador", "Browser"),
             listOf(Triple(Block.Web, tr("Reels y Shorts en la web", "Reels and Shorts on the web"), null)),
         )
         Gap(12)
         Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 0, onClick = openFriction) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.u, vertical = 14.u), verticalAlignment = Alignment.CenterVertically) {
-                Tile(Ic.slow, brush = tileBrush(0xFFFF7A4D, 0xFFFFC06B))
+                Tile(Ic.slow, C.Orange)
                 Spacer(Modifier.width(12.u))
                 Column(Modifier.weight(1f)) {
                     T(tr("Fricción", "Friction"), 16, 650)
@@ -91,11 +92,11 @@ fun BlocksScreen(openFriction: () -> Unit) {
 }
 
 @Composable
-private fun Group(icon: IconData, brush: Brush, name: String, rows: List<Triple<Block, String, String?>>) {
+private fun Group(icon: IconData, accent: Color, name: String, rows: List<Triple<Block, String, String?>>) {
     Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 0) {
         Column(Modifier.padding(start = 16.u, end = 16.u, top = 12.u, bottom = 4.u)) {
             Row(Modifier.fillMaxWidth().padding(bottom = 10.u), verticalAlignment = Alignment.CenterVertically) {
-                Tile(icon, brush = brush)
+                Tile(icon, accent)
                 Spacer(Modifier.width(12.u))
                 T(name, 16, 650, modifier = Modifier.weight(1f))
                 Icon(Ic.chev, 18, C.Chev, 2f)

@@ -55,9 +55,9 @@ private fun SettingsBody() {
     }
     Gap(18)
     ItemRow(tr("Configurar", "Setup"), tr("Permisos y modo inquebrantable", "Permissions and unbreakable mode"), divider = false,
-        lead = { Tile(Ic.shield, C.Ink, tint = Color.White) }, onClick = { openSetup() }) { Icon(Ic.chev, 18, C.Chev, 2f) }
+        lead = { Tile(Ic.shield, C.Ink) }, onClick = { openSetup() }) { Icon(Ic.chev, 18, C.Chev, 2f) }
     ItemRow("GitHub", "github.com/iago-df/argos",
-        lead = { Tile(Ic.globe, C.BlueTint, tint = C.Blue) },
+        lead = { Tile(Ic.globe, C.Blue) },
         onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/iago-df/argos")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
     ) { Icon(Ic.chev, 18, C.Chev, 2f) }
     Gap(14)

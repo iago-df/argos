@@ -155,14 +155,12 @@ fun BigButton(
     }
 }
 
-/** coloured square behind an icon (the .aico of the video) */
+/** a chunky icon with a soft fill of its colour, no square behind it */
 @Composable
-fun Tile(icon: IconData, bg: Color? = null, brush: Brush? = null, tint: Color = Color.White, size: Number = 38, radius: Number = 12, iconSize: Number = 19, modifier: Modifier = Modifier) {
-    Box(
-        modifier.size(size.u).clip(RoundedCornerShape(radius.u))
-            .then(if (brush != null) Modifier.background(brush) else Modifier.background(bg ?: C.BlueTint)),
-        contentAlignment = Alignment.Center,
-    ) { Icon(icon, iconSize, tint, 2f) }
+fun Tile(icon: IconData, accent: Color, size: Number = 38, modifier: Modifier = Modifier) {
+    Box(modifier.size(size.u), contentAlignment = Alignment.Center) {
+        Icon(icon, size.toFloat() * .74f, accent, 2.3f, fill = accent.copy(alpha = .2f))
+    }
 }
 
 /** two colour gradient used by the app tiles, light corner top left */

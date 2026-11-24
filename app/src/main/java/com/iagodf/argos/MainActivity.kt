@@ -12,7 +12,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -133,6 +136,11 @@ fun App() {
                 Spacer(Modifier.navigationBarsPadding().height(120.u))
             }
         }
+        // keeps the scrolled content away from the clock and the battery
+        Box(
+            Modifier.fillMaxWidth().windowInsetsTopHeight(androidx.compose.foundation.layout.WindowInsets.statusBars)
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(C.Bg, C.Bg.copy(alpha = .85f))))
+        )
         NavBar(tab, ::tabLabel, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 20.u)) {
             tab = it; sub = Sub.None
         }

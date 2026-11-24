@@ -77,9 +77,7 @@ fun PausedCard(modifier: Modifier = Modifier) {
     if (serviceOn()) return
     Card(modifier.padding(horizontal = 16.u).fillMaxWidth(), bg = Color(0xFFFFE9E6), shadow = false, onClick = { openSetup() }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(38.u).clip(CircleShape).background(C.Coral), contentAlignment = Alignment.Center) {
-                Icon(Ic.info, 20, Color.White, 2.2f)
-            }
+            com.iagodf.argos.ui.Tile(Ic.info, C.Coral)
             Spacer(Modifier.width(12.u))
             Column(Modifier.weight(1f)) {
                 T(tr("Argos está en pausa", "Argos is paused"), 15, 650)
@@ -106,9 +104,7 @@ fun SetupCard() {
         onClick = { openSetup() },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(38.u).clip(RoundedCornerShape(12.u)).background(C.Ink), contentAlignment = Alignment.Center) {
-                Icon(Ic.shield, 19, Color.White, 2f)
-            }
+            com.iagodf.argos.ui.Tile(Ic.shield, C.Ink)
             Spacer(Modifier.width(12.u))
             Column(Modifier.weight(1f)) {
                 T(tr("Termina de configurar Argos", "Finish setting up Argos"), 15, 650)
