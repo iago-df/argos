@@ -52,8 +52,14 @@ object Lock {
     /** puts the device policy in line with the commitment */
     fun sync(ctx: Context) {
         if (!isOwner(ctx)) return
-        if (Store.committed) apply(ctx) else release(ctx, keepOwner = true)
+        // the guard ticks often; the policy only has to be written when the commitment changes
+        val want = Store.committed
+        if (synced == want) return
+        if (want) apply(ctx) else release(ctx, keepOwner = true)
+        synced = want
     }
+
+    @Volatile private var synced: Boolean? = null
 
     private fun apply(ctx: Context) = runCatching {
         val d = dpm(ctx)

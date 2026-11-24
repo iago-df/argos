@@ -62,9 +62,11 @@ Set up as device owner, Argos can not be uninstalled, the phone can not boot int
     </td>
     <td valign="top">
       <h3>Blocks</h3>
-      Instagram Reels and Explore, YouTube Shorts, and Reels, Shorts and TikTok in the browser. The rest of each app keeps working: messages, stories, search, normal videos.
+      Instagram Reels and Explore, YouTube Shorts, and Reels, Shorts and TikTok in the browser. Argos puts a lock over the Reels and Shorts tabs, so you never get in. The rest of each app keeps working: messages, stories, search, normal videos.
       <br><br>
-      <b>Reels sent to you</b>: a reel opened from a chat plays, but swiping to the next one closes it.
+      <b>Explore</b>: the grid is covered, so no reel opens and none plays with a long press. Search still works.
+      <br><br>
+      <b>Reels sent to you</b>: a reel opened from a chat plays, but you can not swipe to the next one or pull down for a new one.
     </td>
     <td valign="top">
       <h3>Focus mode</h3>
@@ -151,6 +153,8 @@ The first command lets Argos block uninstalling, safe mode, changing the time an
 
 Argos uses Android's accessibility service to know what is on screen. It only reads Instagram, YouTube, the usual browsers and the system settings, and only to find the reels tab, the Shorts player, the address bar or a settings page that could switch it off. During Focus it also looks at which app is opening, and nothing else about it.
 
+On a reel sent in a chat, Argos holds your swipes up and down and hands every other touch (taps, likes, sideways swipes) back to Instagram as it was. It never touches anything on its own.
+
 The app does not ask for the internet permission. It has no account, no analytics and no server: everything stays on your phone, in the app's own storage.
 
 ## Build from source
@@ -178,7 +182,7 @@ The APK is written to `app/build/outputs/apk/debug/`.
 
 ## Limitations
 
-- Instagram and YouTube rename their screens from time to time. When they do, a block may stop working until the ids in [`Screen.kt`](app/src/main/java/com/iagodf/argos/engine/Screen.kt) are updated.
+- Instagram and YouTube rename their screens from time to time. When they do, a block may stop working until the ids in [`Screen.kt`](app/src/main/java/com/iagodf/argos/engine/Screen.kt) are updated. If a reel opens some other way (a link, a reel in the feed), Argos still takes you out of it.
 - The browser block reads the address bar of Chrome, Firefox, Brave, Edge, Samsung Internet, Opera, DuckDuckGo, Kiwi and Vivaldi.
 - Without the `WRITE_SECURE_SETTINGS` command, friction uses a grey veil instead of real black and white.
 

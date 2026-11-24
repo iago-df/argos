@@ -65,7 +65,7 @@ fun BlocksScreen(openFriction: () -> Unit) {
             Ic.camera, Color(0xFFFF5C8A), "Instagram",
             listOf(
                 Triple(Block.IgReels, "Reels", null),
-                Triple(Block.IgExplore, tr("Explorar", "Explore"), null),
+                Triple(Block.IgExplore, tr("Explorar", "Explore"), tr("Tapa la cuadrícula, buscar sigue", "Hides the grid, search still works")),
                 Triple(Block.IgDmSingle, tr("Reels que te envían", "Reels sent to you"), tr("Ver solo ese, sin deslizar", "Watch only that one, no swiping")),
             ),
         )

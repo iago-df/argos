@@ -23,13 +23,13 @@ import androidx.core.graphics.PathParser
 import com.iagodf.argos.R
 
 /** the lock icon of the video drawn on a plain view (overlays can not use compose easily) */
-class LockIcon(ctx: Context, private val color: Int) : View(ctx) {
+class LockIcon(ctx: Context, private val tint: Int) : View(ctx) {
     private val paths = listOf(
         "M8 10.5h8a3 3 0 0 1 3 3v4.5a3 3 0 0 1 -3 3h-8a3 3 0 0 1 -3 -3v-4.5a3 3 0 0 1 3 -3z",
         "M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7", "M12 14.5v2.5",
     ).map { PathParser.createPathFromPathData(it) }
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE; strokeWidth = 2.2f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color
+        style = Paint.Style.STROKE; strokeWidth = 2.2f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = tint
     }
 
     override fun onDraw(c: Canvas) {
@@ -57,8 +57,8 @@ class Overlay(private val svc: AccessibilityService) {
         PixelFormat.TRANSLUCENT,
     )
 
-    /** "Reels blocked · Argos", the same dark pill as the video */
-    fun toast(text: String) = main.post {
+    /** "Reels blocked · Argos", the same dark pill as the video. the accent part goes in the soft blue */
+    fun toast(text: String, accent: String? = null) = main.post {
         toast?.let { runCatching { wm.removeView(it) } }
         val pill = LinearLayout(svc).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -66,22 +66,27 @@ class Overlay(private val svc: AccessibilityService) {
             background = GradientDrawable().apply { cornerRadius = 20 * dp; setColor(Color.argb(235, 21, 19, 29)) }
             setPadding(px(14f), px(12f), px(18f), px(12f))
             elevation = 12 * dp
-            addView(LockIcon(svc, Color.rgb(159, 176, 255)), LinearLayout.LayoutParams(px(17f), px(17f)).apply { marginEnd = px(9f) })
+            addView(LockIcon(svc, Color.rgb(159, 176, 255)), LinearLayout.LayoutParams(px(18f), px(18f)).apply { marginEnd = px(9f) })
             addView(TextView(svc).apply {
-                this.text = text; setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                this.text = android.text.SpannableStringBuilder(text).apply {
+                    if (accent != null) append(accent, android.text.style.ForegroundColorSpan(Color.rgb(159, 176, 255)), 0)
+                }
+                setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 typeface = Typeface.create(inter, 600, false)
             })
         }
         val lp = params(false, false).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; y = px(56f) }
-        runCatching { wm.addView(pill, lp) }.onFailure { return@post }
+        runCatching { wm.addView(pill, lp) }.onFailure { android.util.Log.w("Argos", "toast", it); return@post }
         toast = pill
-        pill.alpha = 0f; pill.translationY = -30 * dp; pill.scaleX = .9f; pill.scaleY = .9f
-        pill.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setInterpolator(OvershootInterpolator(1.6f)).setDuration(420).start()
+        // with "remove animations" on, the pill just appears and leaves
+        val moving = ValueAnimator.areAnimatorsEnabled()
+        if (moving) {
+            pill.alpha = 0f; pill.translationY = -30 * dp; pill.scaleX = .9f; pill.scaleY = .9f
+            pill.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setInterpolator(OvershootInterpolator(1.6f)).setDuration(420).start()
+        }
         main.postDelayed({
-            pill.animate().alpha(0f).translationY(-20 * dp).setDuration(300).withEndAction {
-                runCatching { wm.removeView(pill) }
-                if (toast == pill) toast = null
-            }.start()
+            val gone = { runCatching { wm.removeView(pill) }; if (toast == pill) toast = null }
+            if (moving) pill.animate().alpha(0f).translationY(-20 * dp).setDuration(300).withEndAction { gone() }.start() else gone()
         }, 2400)
     }
 
