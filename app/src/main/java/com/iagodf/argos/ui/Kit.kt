@@ -236,14 +236,21 @@ fun Header(title: String = "Argos", modifier: Modifier = Modifier, onBack: (() -
     }
 }
 
-/** big title of each screen: a light word and a bold word ("Focus mode") */
+/** big title of each screen: a light part and a bold part ("Focus mode"), wraps by words */
 @Composable
-fun Title(light: String?, bold: String, modifier: Modifier = Modifier, lightFirst: Boolean = true) {
-    Row(modifier.padding(horizontal = 22.u)) {
-        if (light != null && lightFirst) T("$light ", 34, 300, C.Muted, ls = -.04f)
-        T(bold, 34, 700, ls = -.04f)
-        if (light != null && !lightFirst) T(" $light", 34, 300, C.Muted, ls = -.04f)
+fun Title(light: String?, bold: String, modifier: Modifier = Modifier, lightFirst: Boolean = true, size: Number = 34) {
+    val sz = size.us
+    val text = androidx.compose.ui.text.buildAnnotatedString {
+        val l = androidx.compose.ui.text.SpanStyle(color = C.Muted, fontWeight = FontWeight(300))
+        val b = androidx.compose.ui.text.SpanStyle(color = C.Ink, fontWeight = FontWeight(700))
+        if (light != null && lightFirst) { pushStyle(l); append("$light "); pop() }
+        pushStyle(b); append(bold); pop()
+        if (light != null && !lightFirst) { pushStyle(l); append(" $light"); pop() }
     }
+    BasicText(
+        text, modifier.padding(horizontal = 22.u),
+        style = TextStyle(fontFamily = Inter, fontSize = sz, letterSpacing = sz * -.04f, lineHeight = sz * 1.08f),
+    )
 }
 
 @Composable
