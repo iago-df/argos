@@ -57,6 +57,15 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 600) {
     val igDirectThread: Boolean
         get() = has("row_thread_composer_edittext", "direct_thread_title", "thread_title", "direct_thread_recycler_view") || hasPart("direct_thread")
 
+    // ---------- browsers ----------
+
+    /** what the address bar of the browser says, without the scheme */
+    val url: String?
+        get() = textOf(
+            "url_bar", "mozac_browser_toolbar_url_view", "location_bar_edit_text", "url_field", "omnibarTextInput",
+            "search_box", "address_bar_edit_text", "url",
+        )?.trim()?.lowercase()?.removePrefix("https://")?.removePrefix("http://")
+
     // ---------- youtube ----------
 
     val ytShorts: Boolean
