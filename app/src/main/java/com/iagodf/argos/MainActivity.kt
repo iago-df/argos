@@ -46,6 +46,8 @@ import com.iagodf.argos.ui.LocalU
 import com.iagodf.argos.ui.NavBar
 import com.iagodf.argos.ui.Tab
 import com.iagodf.argos.ui.U
+import com.iagodf.argos.ui.ToastHost
+import com.iagodf.argos.ui.blocks.BlocksScreen
 import com.iagodf.argos.ui.home.ActivitySheet
 import com.iagodf.argos.ui.home.HomeScreen
 import com.iagodf.argos.ui.u
@@ -104,6 +106,7 @@ fun App() {
                     t == Tab.Home -> HomeScreen(
                         openFocus = { tab = Tab.Focus }, openSchedules = { tab = Tab.Schedules }, openLock = { sub = Sub.Lock },
                     )
+                    t == Tab.Blocks -> BlocksScreen(openFriction = { sub = Sub.Friction })
                     else -> Unit
                 }
                 Spacer(Modifier.navigationBarsPadding().height(120.u))
@@ -113,5 +116,6 @@ fun App() {
             tab = it; sub = Sub.None
         }
         ActivitySheet(activity) { activity = false }
+        ToastHost()
     }
 }
