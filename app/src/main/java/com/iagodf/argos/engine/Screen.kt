@@ -16,6 +16,15 @@ private val DANGER = listOf(
 
 private val DOMAIN = Regex("""^[\w.-]+\.[a-z]{2,}(/|$)""")
 
+/** likes, views, counts and times: they change while you watch */
+private val NUMBERS = Regex("""^[\d\s.,:%+·kKmMbB-]*(\s?(mil|M|K|views|visualizaciones|likes|me gusta))?$""")
+
+/** labels that flip when tapped, so the same reel would look like a new one */
+private val FLIPS = setOf(
+    "follow", "following", "seguir", "siguiendo", "subscribe", "subscribed", "suscribirse", "suscrito", "like", "unlike",
+    "me gusta", "liked", "más", "more", "less", "menos", "…", "...",
+)
+
 class Node(
     val id: String?, val desc: String?, val text: String?, val cls: String,
     val clickable: Boolean, val selected: Boolean, val scrollable: Boolean, val editable: Boolean,
@@ -24,6 +33,8 @@ class Node(
 
 class Screen(root: AccessibilityNodeInfo?, limit: Int = 1200) {
     val nodes = ArrayList<Node>()
+    /** the live nodes, same order as [nodes], to act on them */
+    val infos = ArrayList<AccessibilityNodeInfo>()
     val ids = HashSet<String>()
     val selected = HashSet<String>()
     val descs = ArrayList<String>()
@@ -49,6 +60,7 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 1200) {
                     node.isClickable, node.isSelected, node.isScrollable, node.isEditable, r, parent, depth,
                 )
                 nodes.add(n)
+                infos.add(node)
                 if (id != null) {
                     ids.add(id)
                     if (n.selected) selected.add(id)
@@ -65,58 +77,7 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 1200) {
     fun hasPart(part: String) = ids.any { it.contains(part) }
     fun textOf(vararg id: String): String? = texts.firstOrNull { it.first in id }?.second
 
-    private fun label(n: Node) = (n.desc ?: n.text)?.trim()
-
-    /**
-     * the buttons that lead into a feed: a tab or a chip called "Reels" or "Shorts" (or with one of [tabIds]).
-     * when the label sits on a child, the tappable parent is the one covered
-     */
-    fun entryPoints(names: Set<String>, tabIds: Set<String> = emptySet(), bottomOnly: Boolean = false): List<Rect> {
-        val w = bounds.width().coerceAtLeast(1)
-        val h = bounds.height().coerceAtLeast(1)
-        val out = ArrayList<Rect>()
-        nodes.forEachIndexed { i, n ->
-            val named = n.id in tabIds || label(n)?.let { l -> names.any { l.equals(it, true) } } == true
-            if (!named) return@forEachIndexed
-            // the tappable thing: this node, or its parent when the label is on an icon inside it
-            var t: Node? = n
-            if (!n.clickable) t = nodes.getOrNull(n.parent)?.takeIf { it.clickable }
-            val r = t?.rect ?: if (n.id in tabIds) n.rect else return@forEachIndexed
-            if (r.isEmpty || r.width() > w * .42f || r.height() > h * .14f) return@forEachIndexed
-            if (bottomOnly && r.top < bounds.top + h * .82f) return@forEachIndexed
-            if (out.none { Rect.intersects(it, r) }) out.add(Rect(r))
-        }
-        return out
-    }
-
-    /**
-     * the grid of the instagram explore page (and of the search results), under the search bar.
-     * the typeahead list of accounts is left alone: its rows are as wide as the screen
-     */
-    fun exploreGrid(): Rect? {
-        val w = bounds.width().coerceAtLeast(1)
-        val h = bounds.height().coerceAtLeast(1)
-        // the search bar: an input (or something called search) near the top, as low as a bar
-        val search = nodes.filter { n ->
-            (n.editable || n.id?.contains("search", true) == true) && n.rect.top < bounds.top + h * .3f &&
-                n.rect.width() > w * .4f && n.rect.height() in 1..(h * .12f).toInt()
-        }.maxByOrNull { it.rect.bottom } ?: return null
-        val lists = nodes.withIndex().filter { (_, n) -> n.scrollable && n.rect.height() > h * .35f && n.rect.width() > w * .8f && n.rect.top >= search.rect.top }
-        for ((i, list) in lists) {
-            // tiles: a third (or two thirds) of the width, a bit tall, without text, at most two levels down
-            var tiles = 0
-            nodes.forEach { n ->
-                if (n.depth - list.depth !in 1..3 || !isInside(n, i)) return@forEach
-                val tw = n.rect.width()
-                if (tw in (list.rect.width() * .2f).toInt()..(list.rect.width() * .7f).toInt() && n.rect.height() > tw * .6f && n.text.isNullOrBlank()) tiles++
-            }
-            if (tiles >= 3) {
-                val top = maxOf(list.rect.top, search.rect.bottom)
-                return Rect(list.rect.left, top, list.rect.right, list.rect.bottom).takeIf { it.height() > h * .25f }
-            }
-        }
-        return null
-    }
+    fun label(n: Node) = (n.desc ?: n.text)?.trim()
 
     private fun isInside(n: Node, ancestor: Int): Boolean {
         var p = n.parent
@@ -124,7 +85,52 @@ class Screen(root: AccessibilityNodeInfo?, limit: Int = 1200) {
         return false
     }
 
+    /**
+     * what makes the reel on screen this reel and not another: the author, the caption, the audio.
+     * read only inside the player (so the comments do not count), without numbers (likes change)
+     * and without buttons that flip when you tap them. null when there is nothing to tell reels apart
+     */
+    fun reelSignature(player: List<String>): Set<String>? {
+        val box = nodes.indexOfFirst { n -> n.id != null && player.any { n.id.contains(it) } }
+        val out = HashSet<String>()
+        nodes.forEachIndexed { i, n ->
+            if (box >= 0 && i != box && !isInside(n, box)) return@forEachIndexed
+            n.text?.trim()?.let { t -> if (t.length >= 2 && !NUMBERS.matches(t) && t.lowercase() !in FLIPS) out.add(t.take(80)) }
+            n.desc?.trim()?.let { d -> if (d.length >= 25 && !NUMBERS.matches(d)) out.add(d.take(80)) }
+        }
+        return out.takeIf { it.isNotEmpty() }
+    }
+
+    /** the selected tab of the bottom bar, by id or by its label */
+    fun selectedTab(): Node? {
+        val h = bounds.height()
+        return nodes.firstOrNull { it.selected && it.rect.top > bounds.top + h * .8f && it.rect.width() < bounds.width() * .4f && (it.id != null || label(it) != null) }
+    }
+
+    /** a tab of the bottom bar, found again by id or label, to tap it */
+    fun tab(id: String?, label: String?): AccessibilityNodeInfo? {
+        val h = bounds.height()
+        val i = nodes.indexOfFirst { n ->
+            n.rect.top > bounds.top + h * .8f && ((id != null && n.id == id) || (id == null && label != null && label(n) == label))
+        }
+        if (i < 0) return null
+        var k = i
+        while (k >= 0 && !nodes[k].clickable) k = nodes[k].parent
+        return infos.getOrNull(if (k >= 0) k else i)
+    }
+
+    /** the scrolling list that holds the reels, to move it back by one */
+    fun pager(player: List<String>): AccessibilityNodeInfo? {
+        val i = nodes.indexOfFirst { n -> n.scrollable && n.id != null && player.any { n.id.contains(it) } }
+            .takeIf { it >= 0 } ?: nodes.indices.filter { nodes[it].scrollable }.maxByOrNull { nodes[it].rect.height() } ?: return null
+        return infos.getOrNull(i)
+    }
+
     // ---------- instagram ----------
+
+    /** where the reels sit inside instagram and youtube */
+    val igPlayer = listOf("clips_viewer_view_pager", "clips_viewer")
+    val ytPlayer = listOf("reel_recycler", "reel_player_page_container", "reel_watch", "shorts_player")
 
     val igReelsViewer: Boolean
         get() = has(
