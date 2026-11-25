@@ -98,3 +98,15 @@ class Overlay(private val svc: AccessibilityService) {
         ValueAnimator.ofFloat(v.alpha, to).apply { duration = ms; addUpdateListener { v.alpha = it.animatedValue as Float } }.start()
     }
 }
+
+/** what a block keeps you out of, and the pill it shows */
+enum class Feed(val key: String) {
+    Reels("reels"), Shorts("shorts"), Explore("explore");
+
+    val toast: String
+        get() = when (this) {
+            Reels -> com.iagodf.argos.data.tr("Reels bloqueados", "Reels blocked")
+            Shorts -> com.iagodf.argos.data.tr("Shorts bloqueados", "Shorts blocked")
+            Explore -> com.iagodf.argos.data.tr("Vista previa bloqueada", "Preview blocked")
+        }
+}

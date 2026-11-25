@@ -7,7 +7,9 @@ import android.os.Handler
 import android.os.SystemClock
 import android.provider.Settings
 import android.graphics.Rect
+import android.accessibilityservice.GestureDescription
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.iagodf.argos.data.Apps
 import com.iagodf.argos.data.Lang
@@ -16,8 +18,9 @@ import com.iagodf.argos.data.Store
 import com.iagodf.argos.data.tr
 
 /**
- * the blocking engine. android tells it what is on screen and it covers the way into reels,
- * explore and shorts with a lock. if a reel opens anyway, it gets you out with a back press
+ * the blocking engine. android tells it what is on screen and what you tapped. nothing is drawn on
+ * top of the apps: a tap on the reels tab takes you back to the tab you were on, a reel that opens
+ * anyway is left with a back press, and a swipe that should not happen is undone
  */
 class ArgosService : AccessibilityService() {
     /*
@@ -28,8 +31,7 @@ class ArgosService : AccessibilityService() {
     private val work = Handler(thread.looper)
     private lateinit var overlay: Overlay
     private lateinit var friction: FrictionEngine
-    private lateinit var shields: Shields
-    private lateinit var chat: ChatGuard
+    private val tracker = ReelTracker()
     private var lastAction = 0L
     @Volatile private var pendingPkg: String? = null
     private var queued = false
@@ -42,17 +44,22 @@ class ArgosService : AccessibilityService() {
 
     // a reel opened from a chat: it plays, but the next one does not
     private var lastThreadAt = -10_000L
-    private var dmReelSince = 0L
+    private var chatSince = 0L
+    private var chatOrigin: Set<String>? = null
+
+    /** the bottom tab you were on in each app, to go back to it from reels or shorts */
+    private val lastTab = HashMap<String, Pair<String?, String?>>()
+    /** instagram is on the explore grid (or the search results) */
+    private var onExplore = false
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         Lang.load(this)
         Store.init(this)
+        Diag.load(this)
         overlay = Overlay(this)
         com.iagodf.argos.lock.Guard.start(this)
         friction = FrictionEngine(this, overlay)
-        shields = Shields(this, overlay)
-        chat = ChatGuard(this, overlay)
         running = true
     }
 
@@ -67,7 +74,23 @@ class ArgosService : AccessibilityService() {
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         val pkg = e.packageName?.toString() ?: return
         val type = e.eventType
-        work.post { safe { handle(pkg, type) } }
+        val feedApp = pkg == Apps.INSTAGRAM || pkg == Apps.YOUTUBE
+        // taps are read on the engine thread, so a copy is kept (the event itself is reused by android)
+        @Suppress("DEPRECATION")
+        val copy = if (feedApp && (type == AccessibilityEvent.TYPE_VIEW_CLICKED || type == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED)) AccessibilityEvent.obtain(e) else null
+        val note = if (Diag.on && (feedApp || Apps.isBrowser(this, pkg))) describe(e) else null
+        work.post { safe { handle(pkg, type, copy, note) } }
+    }
+
+    private fun describe(e: AccessibilityEvent) = buildString {
+        append(AccessibilityEvent.eventTypeToString(e.eventType)).append(' ').append(e.packageName)
+        e.className?.let { append(" cls=").append(it) }
+        e.contentDescription?.let { append(" d=\"").append(it.toString().take(50)).append('"') }
+        if (e.text.isNotEmpty()) append(" t=\"").append(e.text.joinToString(" ").take(50)).append('"')
+        if (e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+            append(" from=").append(e.fromIndex).append(" to=").append(e.toIndex).append(" n=").append(e.itemCount)
+            append(" dy=").append(e.scrollDeltaY).append(" y=").append(e.scrollY)
+        }
     }
 
     /** an exception in an accessibility service makes android switch it off for good, so nothing escapes */
@@ -75,22 +98,54 @@ class ArgosService : AccessibilityService() {
         try { block() } catch (t: Throwable) { android.util.Log.w("Argos", "engine", t) }
     }
 
-    private fun handle(pkg: String, type: Int) {
+    private fun handle(pkg: String, type: Int, tap: AccessibilityEvent?, note: String?) {
+        if (note != null) Diag.line(this, note)
         if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && focusCheck(pkg)) return
         if (pkg in SETTINGS && Store.committed) { schedule(pkg); return }
         val feedApp = pkg == Apps.INSTAGRAM || pkg == Apps.YOUTUBE
         val web = !feedApp && Apps.isBrowser(this, pkg)
-        if (!feedApp && pkg != packageName && type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) friction.inReels(false)
-        // another app came on top (or the notification shade): the covers go away with the app they cover
-        if (!feedApp && !web && pkg != packageName && (shields.any || chat.on) && topApp() != shieldsFor) {
-            shields.clear(); chat.set(false)
-        }
-        if (feedApp && type == AccessibilityEvent.TYPE_VIEW_SCROLLED && friction.active) friction.swiped()
+        if (!feedApp && pkg != packageName && type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) { friction.inReels(false); tracker.reset() }
+        if (tap != null) tapped(pkg, type, tap)
         if (!feedApp && !web) return
-        schedule(pkg, type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+        schedule(pkg, type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || type == AccessibilityEvent.TYPE_VIEW_CLICKED)
     }
 
-    private var shieldsFor: String? = null
+    /**
+     * a tap on the reels or shorts tab: the app is sent straight back to the tab you were on, so the
+     * feed never gets going. a long press on a reel in explore (the preview) is closed right away
+     */
+    private fun tapped(pkg: String, type: Int, e: AccessibilityEvent) {
+        val src = runCatching { e.source }.getOrNull()
+        val id = src?.viewIdResourceName?.substringAfter(":id/")
+        val label = (e.contentDescription ?: src?.contentDescription ?: e.text.firstOrNull() ?: src?.text)?.toString()?.trim()
+        val r = Rect().also { src?.getBoundsInScreen(it) }
+        val h = resources.displayMetrics.heightPixels
+        val bottomBar = r.top > h * .8f
+        val pol = policy()
+        val now = SystemClock.elapsedRealtime()
+        if (type == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            val reels = pkg == Apps.INSTAGRAM && pol.reels && (id == "clips_tab" || (bottomBar && label.equals("Reels", true)))
+            val shorts = pkg == Apps.YOUTUBE && pol.shorts && bottomBar && label.equals("Shorts", true)
+            if (reels || shorts) leaveTab(pkg, if (reels) Feed.Reels else Feed.Shorts)
+        } else if (pkg == Apps.INSTAGRAM && onExplore && (pol.reels || pol.explore) && src?.isEditable != true && !bottomBar) {
+            lastAction = now
+            performGlobalAction(GLOBAL_ACTION_BACK)
+            overlay.toast(Feed.Explore.toast, " · Argos")
+            Store.count("explore")
+        }
+    }
+
+    private fun leaveTab(pkg: String, feed: Feed) {
+        lastAction = SystemClock.elapsedRealtime()
+        overlay.toast(feed.toast, " · Argos")
+        Store.count(feed.key)
+        val (id, label) = lastTab[pkg] ?: (null to null)
+        val root = rootOf(pkg)
+        val node = root?.let { r ->
+            id?.let { r.findAccessibilityNodeInfosByViewId("$pkg:id/$it").firstOrNull() } ?: Screen(r).tab(id, label)
+        }
+        if (node == null || !node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) performGlobalAction(GLOBAL_ACTION_BACK)
+    }
 
     /** the app on top, under argos' own windows and the small system bars. null while the shade or a dialog covers it */
     private fun topApp(): String? {
@@ -137,10 +192,10 @@ class ArgosService : AccessibilityService() {
     }
 
     /** the window of that app. the active one can be the keyboard or a system bar on real phones */
-    private fun rootOf(pkg: String): android.view.accessibility.AccessibilityNodeInfo? {
+    private fun rootOf(pkg: String): AccessibilityNodeInfo? {
         rootInActiveWindow?.let { if (it.packageName?.toString() == pkg) return it }
         return windows.asSequence()
-            .filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
             .mapNotNull { it.root }
             .firstOrNull { it.packageName?.toString() == pkg }
     }
@@ -148,6 +203,7 @@ class ArgosService : AccessibilityService() {
     private fun inspect(pkg: String) {
         val root = rootOf(pkg) ?: return
         val s = Screen(root)
+        Diag.screen(this, pkg, s)
         if (pkg in SETTINGS) {
             if (Store.committed && s.dangerForArgos) {
                 lastAction = 0
@@ -155,28 +211,22 @@ class ArgosService : AccessibilityService() {
             }
             return
         }
+        // the shade, a dialog or split screen on top: nothing to do until the app is back
+        if (topApp() != pkg) return
         val pol = policy()
-        if (topApp() != pkg) {
-            // the app is not really in front (shade, dialog, split screen): nothing to cover
-            if (shieldsFor == pkg) { shields.clear(); chat.set(false) }
-            return
+        s.selectedTab()?.let { t ->
+            val l = s.label(t)
+            if (t.id != "clips_tab" && !l.equals("Reels", true) && !l.equals("Shorts", true)) lastTab[pkg] = t.id to l
         }
-        shieldsFor = pkg
         when (pkg) {
             Apps.INSTAGRAM -> instagram(s, pol)
             Apps.YOUTUBE -> {
-                friction.inReels(s.ytShorts && !pol.shorts)
-                chat.set(false)
-                shields.show(if (pol.shorts && !s.ytShorts) s.entryPoints(setOf("Shorts")).map { it to Feed.Shorts } else emptyList(), null)
-                if (pol.shorts && s.ytShorts) block("shorts", Feed.Shorts.toast)
+                if (!s.ytShorts) { tracker.reset(); friction.inReels(false); return }
+                if (pol.shorts) { block("shorts", Feed.Shorts.toast); return }
+                friction.inReels(true)
+                follow(pkg, s, s.ytPlayer, chat = false)
             }
             else -> {
-                chat.set(false)
-                // the reels and shorts tabs of the mobile sites, at the bottom
-                val tabs = if (!pol.web) emptyList() else
-                    s.entryPoints(setOf("Shorts"), bottomOnly = true).map { it to Feed.Shorts } +
-                        s.entryPoints(setOf("Reels"), bottomOnly = true).map { it to Feed.Reels }
-                shields.show(tabs, null)
                 val url = s.url
                 if (pol.web && url != null && WEB.containsMatchIn(url)) block("web", tr("Bloqueado en la web", "Blocked on the web"))
             }
@@ -186,25 +236,71 @@ class ArgosService : AccessibilityService() {
     private fun instagram(s: Screen, pol: Policy) {
         val now = SystemClock.elapsedRealtime()
         val viewer = s.igReelsViewer
-        if (s.igDirectThread && !viewer) lastThreadAt = now
-        if (!viewer) dmReelSince = 0
-        // a reel opened from a chat, while that is allowed
-        val fromChat = viewer && pol.dmSingle && (dmReelSince > 0 || now - lastThreadAt < 5000)
-        if (fromChat && dmReelSince == 0L) dmReelSince = now
-        friction.inReels(viewer && !pol.reels && !fromChat)
+        val thread = s.igDirectThread
+        onExplore = !viewer && !thread && (
+            "search_tab" in s.selected || s.selectedDescs.any { it.startsWith("Search", true) || it.startsWith("Buscar", true) } ||
+                s.hasPart("action_bar_search") || s.hasPart("explore")
+            )
+        if (thread && !viewer) lastThreadAt = now
+        if (!viewer) {
+            chatSince = 0; chatOrigin = null
+            tracker.reset(); friction.inReels(false)
+            if (pol.reels && s.igReelsTab) block("reels", Feed.Reels.toast)
+            return
+        }
+        // a reel opened from a chat, while that is allowed: only that one
+        val fromChat = pol.reels && pol.dmSingle && (chatSince > 0 || now - lastThreadAt < 5000)
+        if (fromChat && chatSince == 0L) chatSince = now
+        // the fallback: a reel that opened some other way (a link, the feed, explore)
+        if (pol.reels && !fromChat) { block("reels", Feed.Reels.toast); return }
+        friction.inReels(!pol.reels)
+        follow(Apps.INSTAGRAM, s, s.igPlayer, chat = fromChat)
+    }
 
-        val tabs = if (pol.reels && !viewer) s.entryPoints(setOf("Reels"), setOf("clips_tab")).map { it to Feed.Reels } else emptyList()
-        val onSearch = "search_tab" in s.selected || s.selectedDescs.any { it.startsWith("Search", true) || it.startsWith("Buscar", true) } ||
-            s.hasPart("action_bar_search") || s.hasPart("explore")
-        val grid = if (pol.explore && onSearch && !viewer) s.exploreGrid() else null
-        shields.show(tabs, grid)
+    /**
+     * follows the reels one by one. a swipe that only goes halfway, or scrolling the comments, is not a
+     * new reel. when one really arrives: from a chat it goes back to the reel you were sent, with friction
+     * it goes back if you did not stay long enough (or did not swipe enough times)
+     */
+    private fun follow(pkg: String, s: Screen, player: List<String>, chat: Boolean) {
+        // the comments, the share sheet or the keyboard are on top of the reel: nothing changes reel there
+        if (s.hasPart("bottom_sheet") || s.hasPart("comment") || s.hasPart("share_sheet") || imeOpen()) return
+        val now = SystemClock.elapsedRealtime()
+        val sig = s.reelSignature(player)
+        val wasEmpty = tracker.first
+        when (tracker.feed(sig, now)) {
+            ReelTracker.Change.None -> {
+                if (wasEmpty && !tracker.first) { if (chat) chatOrigin = sig else friction.entered() }
+                if (tracker.settling) work.postDelayed({ schedule(pkg) }, ReelTracker.HOLD + 40)
+            }
+            ReelTracker.Change.Back -> Unit
+            ReelTracker.Change.New -> if (chat) {
+                bounce(s, player, orLeave = true)
+                overlay.toast(tr("Solo este.", "Only that one."), tr(" Ni uno más.", " No more."))
+                Store.count("reels")
+                // a pull to refresh can not be undone: if the reel you were sent is not back, leave
+                work.postDelayed({
+                    safe {
+                        val o = chatOrigin
+                        if (o != null && !tracker.isOn(o)) { lastAction = SystemClock.elapsedRealtime(); performGlobalAction(GLOBAL_ACTION_BACK) }
+                    }
+                }, 1300)
+            } else if (!friction.next(now - tracker.previousSince)) bounce(s, player, orLeave = false)
+        }
+    }
 
-        // the comments, the share sheet or the keyboard need their swipes, so the guard steps aside for them
-        val sheet = s.hasPart("bottom_sheet") || s.hasPart("comment") || s.hasPart("share_sheet") || imeOpen()
-        chat.set(fromChat && pol.reels && !sheet)
-
-        // the fallback: a reel that opened some other way (a link, the feed)
-        if (!fromChat && pol.reels && (viewer || s.igReelsTab)) block("reels", Feed.Reels.toast)
+    /** moves the reels back by one, as if you had swiped down */
+    private fun bounce(s: Screen, player: List<String>, orLeave: Boolean) {
+        val p = s.pager(player)
+        val up = AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_UP.id
+        val done = p != null && runCatching {
+            (p.actionList.any { it.id == up } && p.performAction(up)) || p.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
+        }.getOrDefault(false)
+        if (done) return
+        if (orLeave) { lastAction = SystemClock.elapsedRealtime(); performGlobalAction(GLOBAL_ACTION_BACK); return }
+        val w = s.bounds.width().toFloat(); val h = s.bounds.height().toFloat()
+        val path = android.graphics.Path().apply { moveTo(w / 2, s.bounds.top + h * .35f); lineTo(w / 2, s.bounds.top + h * .75f) }
+        runCatching { dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, 180)).build(), null, null) }
     }
 
     private var launchable: Set<String> = emptySet()
@@ -223,7 +319,6 @@ class ArgosService : AccessibilityService() {
         if (now - lastAction < 800) return true
         lastAction = now
         performGlobalAction(GLOBAL_ACTION_HOME)
-        shields.clear(); chat.set(false)
         overlay.toast(tr("Focus: solo lo esencial", "Focus: only the essentials"))
         Store.count("focus")
         return true

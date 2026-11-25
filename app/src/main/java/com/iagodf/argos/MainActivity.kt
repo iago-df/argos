@@ -68,6 +68,7 @@ class ArgosApp : Application() {
         super.onCreate()
         Lang.load(this)
         Store.init(this)
+        com.iagodf.argos.engine.Diag.load(this)
     }
 }
 
