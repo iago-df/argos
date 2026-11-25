@@ -69,16 +69,23 @@ fun FrictionScreen() {
         Subtitle(tr("Cuando los Reels estén permitidos", "When Reels are allowed"))
         Gap(18)
 
-        // the pause grows reel after reel, this is the one you get at reel 20
+        // how long you have to stay on a reel before the next one lets you through. it grows reel after
+        // reel and this is the one you get at reel 20. 0 switches it off
         var drag by remember(f.maxPause) { mutableIntStateOf(f.maxPause) }
         Card(Modifier.padding(horizontal = 16.u).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Tile(Ic.clock, C.Blue)
                 Spacer(Modifier.width(10.u))
                 T(tr("Pausa entre reels", "Pause between reels"), 15, 650, modifier = Modifier.weight(1f))
-                T("+$drag s", 18, 700, C.Blue)
+                T(if (drag == 0) tr("No", "Off") else "+$drag s", 18, 700, if (drag == 0) C.Muted else C.Blue)
             }
             Slider(drag, { drag = it }) { save(f.copy(maxPause = drag)) }
+            T(
+                if (drag == 0) tr("Puedes pasar de reel cuando quieras.", "You can go to the next reel whenever you want.")
+                else tr("Si deslizas antes de tiempo, vuelves al reel en el que estabas. No sale nada en pantalla.",
+                    "Swipe too early and you are back on the reel you were on. Nothing shows up on screen."),
+                12, 500, C.Muted, Modifier.padding(top = 10.u),
+            )
             Row(Modifier.fillMaxWidth().padding(top = 14.u)) {
                 T("Reel 1", 12, 500, C.Sub)
                 Spacer(Modifier.weight(1f))
@@ -96,7 +103,7 @@ fun FrictionScreen() {
                 Line(Ic.drop, Color(0xFFF2F2F5), Color(0xFF6F6A88), tr("Blanco y negro", "Black and white"), tr("Pierde color poco a poco", "Loses colour little by little"), false, f.gray) {
                     save(f.copy(gray = it))
                 }
-                Line(Ic.slow, Color(0xFFFFF0E8), C.Orange, tr("Deslizar más lento", "Slower swiping"), tr("Cada vez cuesta más", "Every time it costs more"), true, f.slow) {
+                Line(Ic.slow, Color(0xFFFFF0E8), C.Orange, tr("Deslizar cuesta más", "Swiping costs more"), tr("Cada 5 reels, un deslizamiento más", "Every 5 reels, one more swipe"), true, f.slow) {
                     save(f.copy(slow = it))
                 }
                 Line(Ic.restart, C.BlueTint, C.Blue, tr("No se reinicia", "Does not reset"), tr("Aunque cierres la app", "Even if you close the app"), true, f.noReset) {
@@ -121,8 +128,8 @@ private fun Line(icon: IconData, bg: Color, tint: Color, title: String, sub: Str
 private fun Slider(value: Int, onValue: (Int) -> Unit, onDone: () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 26.u, start = 4.u, end = 4.u).height(26.u)) {
         val w = with(LocalDensity.current) { maxWidth.toPx() }
-        fun at(x: Float) = (1 + (x / w).coerceIn(0f, 1f) * (MAX - 1)).roundToInt()
-        val frac = (value - 1f) / (MAX - 1)
+        fun at(x: Float) = ((x / w).coerceIn(0f, 1f) * MAX).roundToInt()
+        val frac = value.toFloat() / MAX
         val mw = maxWidth
         Box(
             Modifier.fillMaxWidth().fillMaxHeight()
