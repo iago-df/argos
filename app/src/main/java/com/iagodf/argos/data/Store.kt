@@ -176,6 +176,8 @@ object Store {
                 k == "dm" -> sp.edit().putBoolean(Block.IgDmSingle.key, true).apply()
                 k == "friction" -> writeFriction(fromJson(JSONObject(p.payload)))
                 k == "allowed" -> sp.edit().putStringSet("allowed", p.payload.split(",").filter { it.isNotBlank() }.toSet()).apply()
+                k == "lock_apps" -> sp.edit().putStringSet("lock_apps", p.payload.split(",").filter { it.isNotBlank() }.toSet()).apply()
+                k == "lock_words" -> sp.edit().putString("lock_words", p.payload).apply()
             }
         }
         streakCheck()
@@ -244,6 +246,29 @@ object Store {
     }
 
     fun newScheduleId() = (schedules().maxOfOrNull { it.id } ?: 0) + 1
+
+    // ---------- the lock: what it adds while it is on ----------
+
+    /** apps paused while Argos is locked */
+    fun lockApps(): Set<String> = sp.getStringSet("lock_apps", emptySet()) ?: emptySet()
+
+    /** adding is stricter and applies now, taking one out waits like any other relax */
+    fun setLockApps(s: Set<String>) {
+        if (s.containsAll(lockApps())) {
+            dropPending("lock_apps"); sp.edit().putStringSet("lock_apps", s).apply(); bump()
+        } else relax("lock_apps", s.joinToString(",")) { sp.edit().putStringSet("lock_apps", s).apply(); bump() }
+    }
+
+    /** words and sites blocked in every browser while Argos is locked, lower case */
+    fun lockWords(): List<String> = sp.getString("lock_words", "").orEmpty().split('\n').filter { it.isNotBlank() }
+
+    fun setLockWords(l: List<String>) {
+        val clean = l.map { it.trim().lowercase() }.filter { it.isNotBlank() }.distinct()
+        val raw = clean.joinToString("\n")
+        if (clean.containsAll(lockWords())) {
+            dropPending("lock_words"); sp.edit().putString("lock_words", raw).apply(); bump()
+        } else relax("lock_words", raw) { sp.edit().putString("lock_words", raw).apply(); bump() }
+    }
 
     // ---------- focus ----------
 
@@ -323,7 +348,7 @@ object Store {
     }
 
     fun blockedToday(kind: String? = null): Int =
-        if (kind != null) sp.getInt(statKey(kind), 0) else listOf("reels", "explore", "shorts", "web", "focus").sumOf { blockedToday(it) }
+        if (kind != null) sp.getInt(statKey(kind), 0) else listOf("reels", "explore", "shorts", "web", "focus", "apps").sumOf { blockedToday(it) }
 
     /** days in a row with reels and shorts blocked all day */
     fun streakDays(): Int {

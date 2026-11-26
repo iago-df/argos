@@ -1,17 +1,40 @@
 package com.iagodf.argos.ui.lock
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import com.iagodf.argos.data.Apps
 import com.iagodf.argos.data.Lang
 import com.iagodf.argos.data.Store
 import com.iagodf.argos.data.tr
@@ -31,14 +54,22 @@ import com.iagodf.argos.ui.T
 import com.iagodf.argos.ui.Tile
 import com.iagodf.argos.ui.Title
 import com.iagodf.argos.ui.Toaster
+import com.iagodf.argos.ui.Toggle
+import com.iagodf.argos.ui.focus.AppIcon
+import com.iagodf.argos.ui.tap
 import com.iagodf.argos.ui.u
+import com.iagodf.argos.ui.us
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.ceil
 
 private const val DAY = 86_400_000.0
 
-/** commit to Argos, and later ask to switch it off: 30 days that do not count while a block is on */
+/**
+ * the lock tab. before locking: everything the lock will add (paused apps, blocked words) is set up here,
+ * and nothing happens until you lock. once locked: the 30 day request to switch it off
+ */
 @Composable
 fun LockScreen() {
     Store.rev.intValue
@@ -47,62 +78,78 @@ fun LockScreen() {
     val committed = Store.committed
 
     Column {
-        if (committed) Title(tr("Desactivar", "Deactivate"), "Argos") else Title(tr("Bloquear", "Lock"), "Argos")
-        Gap(22)
+        if (committed) Title(tr("Bloqueo", "Lock"), tr("activo", "on")) else Title(tr("Bloqueo", "Lock"), tr("total", "it down"))
+        Gap(10)
+        com.iagodf.argos.ui.Subtitle(
+            if (committed) tr("Endurecer, al instante. Relajar, ${Store.RELAX_DAYS} días. Apagarlo, ${Store.DEACTIVATE_DAYS}.", "Stricter, right away. Softer, ${Store.RELAX_DAYS} days. Off, ${Store.DEACTIVATE_DAYS}.")
+            else tr("Déjalo todo listo. No pasa nada hasta que lo actives.", "Get it all ready. Nothing happens until you turn it on."),
+        )
+        Gap(18)
 
-        Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 20) {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                val left = ((Store.deactNeeded - Store.deactAccum) / DAY).let { ceil(it).toInt().coerceAtLeast(0) }
-                val prog = when {
-                    !committed -> 0f
-                    !Store.deactRequested -> 0f
-                    else -> (Store.deactAccum / Store.deactNeeded.toFloat())
-                }
-                Ring(prog, 130, 11) {
-                    if (!committed) Orb(64, glow = false)
-                    else Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        T(if (Store.deactRequested) "$left" else "${Store.DEACTIVATE_DAYS}", 42, 700, ls = -.05f, lh = 1f)
-                        T(if (left == 1 && Store.deactRequested) tr("día", "day") else tr("días", "days"), 13, 500, C.Muted)
-                    }
-                }
-                Gap(16)
-                val (head, sub) = when {
-                    !committed -> tr("Hazlo inquebrantable", "Make it unbreakable") to
-                        tr("Endurecer, al instante. Relajar, ${Store.RELAX_DAYS} días. Apagarlo, ${Store.DEACTIVATE_DAYS}.", "Stricter, right away. Softer, ${Store.RELAX_DAYS} days. Off, ${Store.DEACTIVATE_DAYS}.")
-                    Store.deactReady -> tr("Ya puedes desactivarlo", "You can switch it off now") to tr("Han pasado los ${Store.DEACTIVATE_DAYS} días", "The ${Store.DEACTIVATE_DAYS} days are over")
-                    Store.deactRequested -> {
-                        val d = LocalDate.now().plusDays(left.toLong())
-                        val f = DateTimeFormatter.ofPattern(if (Lang.en) "d MMM" else "d 'de' MMM", Lang.locale)
-                        tr("Disponible el ${d.format(f)}", "Ready on ${d.format(f)}") to tr("No cuenta mientras hay un bloqueo", "It does not count while a block is on")
-                    }
-                    else -> tr("Pide la desactivación", "Request deactivation") to tr("Se cumplirá dentro de ${Store.DEACTIVATE_DAYS} días", "It will be ready in ${Store.DEACTIVATE_DAYS} days")
-                }
-                T(head, 15, 600, align = TextAlign.Center)
-                T(sub, 13, 400, C.Muted, Modifier.padding(top = 4.u), align = TextAlign.Center)
-            }
-        }
-        Gap(14)
-
-        Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 0) {
-            Column(Modifier.padding(horizontal = 16.u, vertical = 4.u)) {
-                Protect(Ic.trash, tr("No se puede desinstalar", "Can not be uninstalled"), owner, false)
-                Protect(Ic.restart, tr("Reiniciar no lo quita", "Restarting does not remove it"), owner, true)
-                Protect(Ic.clock, tr("Cambiar la hora no sirve", "Changing the time does not help"), owner, true)
-                Protect(Ic.shield, tr("Ni modo seguro ni forzar detención", "No safe mode, no force stop"), owner, true)
-            }
-        }
-        if (!owner) {
+        StatusCard(committed)
+        if (Lock.TESTING) {
             Gap(10)
             T(
-                tr("Para que sea inquebrantable, haz de Argos el propietario del dispositivo (Ajustes → Configurar).", "To make it truly unbreakable, set Argos as device owner (Settings → Setup)."),
-                12, 500, C.Orange, Modifier.padding(horizontal = 22.u),
+                tr("Versión de pruebas: el bloqueo se puede quitar al momento. Más adelante solo quedará la espera de ${Store.DEACTIVATE_DAYS} días.",
+                    "Test version: the lock can be switched off right away. Later only the ${Store.DEACTIVATE_DAYS} day wait will be left."),
+                12, 500, C.Blue, Modifier.padding(horizontal = 22.u), lh = 1.35f,
             )
         }
         Gap(22)
 
-        Box(Modifier.padding(horizontal = 16.u)) {
+        Section(tr("Qué bloquea", "What it blocks"))
+        Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 0) {
+            Column(Modifier.padding(horizontal = 16.u, vertical = 4.u)) {
+                val apps = Store.lockApps().count { Apps.installed(ctx, it) }
+                ItemRow(
+                    tr("Apps pausadas", "Paused apps"),
+                    if (apps == 0) tr("Ninguna todavía", "None yet") else tr("$apps apps no se abrirán", "$apps apps will not open"),
+                    divider = false, lead = { Tile(Ic.apps, C.Coral) }, onClick = { openApps() },
+                ) { Icon(Ic.chev, 18, C.Chev, 2f) }
+                val words = Store.lockWords()
+                ItemRow(
+                    tr("Webs y palabras", "Sites and words"),
+                    if (words.isEmpty()) tr("En cualquier navegador", "In any browser") else words.take(3).joinToString(", ") + if (words.size > 3) "…" else "",
+                    lead = { Tile(Ic.globe, C.Blue) }, onClick = { openWords() },
+                ) { Icon(Ic.chev, 18, C.Chev, 2f) }
+                ItemRow(
+                    tr("Bloqueos, horarios y fricción", "Blocks, schedules and friction"),
+                    tr("Se quedan como los tengas en sus pestañas", "They stay as you set them in their tabs"),
+                    lead = { Tile(Ic.cal, C.Orange) },
+                ) {}
+            }
+        }
+        Store.pendingFor("lock_apps")?.let { PendingNote(tr("Apps pausadas", "Paused apps"), it.applyAt) }
+        Store.pendingFor("lock_words")?.let { PendingNote(tr("Webs y palabras", "Sites and words"), it.applyAt) }
+        Gap(22)
+
+        Section(tr("Qué no se podrá hacer", "What you will not be able to do"))
+        Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 0) {
+            Column(Modifier.padding(horizontal = 16.u, vertical = 4.u)) {
+                Protect(Ic.trash, tr("Desinstalar Argos", "Uninstall Argos"), owner, false)
+                Protect(Ic.shield, tr("Forzar su detención o borrar sus datos", "Force stop it or wipe its data"), owner, true)
+                Protect(Ic.restart, tr("Quitarlo reiniciando o en modo seguro", "Remove it by restarting or in safe mode"), owner, true)
+                Protect(Ic.clock, tr("Cambiar la hora para saltarte horarios", "Change the time to skip schedules"), owner, true)
+            }
+        }
+        T(
+            tr("El resto del móvil sigue igual: tus otras apps se instalan, actualizan y desinstalan como siempre.",
+                "The rest of the phone stays the same: your other apps install, update and uninstall as always."),
+            12, 500, C.Muted, Modifier.padding(start = 22.u, end = 22.u, top = 8.u), lh = 1.35f,
+        )
+        if (!owner) {
+            Gap(8)
+            T(
+                tr("Sin el modo propietario (Ajustes → Configurar), Argos aún se podría desinstalar y las apps se cierran en vez de pausarse.",
+                    "Without device owner (Settings → Setup), Argos could still be uninstalled and apps are closed instead of paused."),
+                12, 500, C.Orange, Modifier.padding(horizontal = 22.u), lh = 1.35f,
+            )
+        }
+        Gap(24)
+
+        Column(Modifier.padding(horizontal = 16.u), verticalArrangement = Arrangement.spacedBy(10.u)) {
             when {
-                !committed -> BigButton(tr("Bloquear Argos", "Lock Argos"), icon = Ic.lock) { confirmLock() }
+                !committed -> BigButton(tr("Activar el bloqueo", "Turn the lock on"), icon = Ic.lock) { confirmLock() }
                 Store.deactReady -> BigButton(tr("Desactivar Argos", "Deactivate Argos"), bg = C.Coral) {
                     Store.finishDeactivation(); Lock.release(ctx)
                     Toaster.show(tr("Argos desactivado. Ya puedes desinstalarlo.", "Argos is off. You can uninstall it now."))
@@ -113,9 +160,49 @@ fun LockScreen() {
                 }
                 else -> BigButton(tr("Solicitar desactivación", "Request deactivation")) { confirmRequest() }
             }
+            if (committed && Lock.TESTING) BigButton(tr("Quitar ya (pruebas)", "Switch off now (testing)"), bg = Color.White, color = C.Coral) { confirmUnlockNow() }
+            if (!committed && owner) BigButton(tr("Quitar el modo inquebrantable", "Drop unbreakable mode"), bg = Color.White, color = C.Ink) { confirmDropOwner() }
         }
     }
 }
+
+@Composable
+private fun StatusCard(committed: Boolean) {
+    Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 20) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            val left = ((Store.deactNeeded - Store.deactAccum) / DAY).let { ceil(it).toInt().coerceAtLeast(0) }
+            val prog = if (!committed || !Store.deactRequested) 0f else Store.deactAccum / Store.deactNeeded.toFloat()
+            Ring(prog, 130, 11) {
+                if (!committed) Orb(64, glow = false)
+                else Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    T(if (Store.deactRequested) "$left" else "${Store.DEACTIVATE_DAYS}", 42, 700, ls = -.05f, lh = 1f)
+                    T(if (left == 1 && Store.deactRequested) tr("día", "day") else tr("días", "days"), 13, 500, C.Muted)
+                }
+            }
+            Gap(16)
+            val (head, sub) = when {
+                !committed -> tr("Todavía no está activo", "Not on yet") to
+                    tr("Ajusta lo de abajo y actívalo cuando lo tengas claro.", "Set up what is below and turn it on when you are sure.")
+                Store.deactReady -> tr("Ya puedes desactivarlo", "You can switch it off now") to tr("Han pasado los ${Store.DEACTIVATE_DAYS} días", "The ${Store.DEACTIVATE_DAYS} days are over")
+                Store.deactRequested -> {
+                    val d = LocalDate.now().plusDays(left.toLong())
+                    val f = DateTimeFormatter.ofPattern(if (Lang.en) "d MMM" else "d 'de' MMM", Lang.locale)
+                    tr("Disponible el ${d.format(f)}", "Ready on ${d.format(f)}") to tr("No cuenta mientras hay un bloqueo", "It does not count while a block is on")
+                }
+                else -> tr("Bloqueo activo", "Lock on") to tr("Para apagarlo, pide la desactivación: ${Store.DEACTIVATE_DAYS} días", "To switch it off, request it: ${Store.DEACTIVATE_DAYS} days")
+            }
+            T(head, 15, 600, align = TextAlign.Center)
+            T(sub, 13, 400, C.Muted, Modifier.padding(top = 4.u), align = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun Section(text: String) = T(text, 13, 600, C.Muted, Modifier.padding(start = 22.u, bottom = 8.u))
+
+@Composable
+private fun PendingNote(what: String, at: Long) =
+    T("$what: " + com.iagodf.argos.ui.blocks.waitText(at), 12, 500, C.Orange, Modifier.padding(start = 22.u, top = 8.u))
 
 @Composable
 private fun Protect(icon: IconData, label: String, on: Boolean, divider: Boolean) {
@@ -124,21 +211,143 @@ private fun Protect(icon: IconData, label: String, on: Boolean, divider: Boolean
     }
 }
 
-private fun confirmLock() = Sheets.open(tr("¿Bloquear Argos?", "Lock Argos?")) {
+// ---------- what it blocks ----------
+
+private fun openApps() = Sheets.open(tr("Apps pausadas", "Paused apps")) {
+    Store.rev.intValue
     val ctx = LocalContext.current
+    T(
+        tr("Mientras el bloqueo esté activo, estas apps se pausan: salen en gris y no se abren. Teléfono, mensajes, contactos, cámara, galería, correo y reloj no se pueden pausar.",
+            "While the lock is on, these apps are paused: greyed out, they do not open. Phone, messages, contacts, camera, gallery, email and clock can not be paused."),
+        14, 400, C.Muted, Modifier.padding(bottom = 10.u), lh = 1.35f,
+    )
+    if (Store.committed) T(
+        tr("Quitar apps de la lista espera ${Store.RELAX_DAYS} días.", "Taking apps off the list waits ${Store.RELAX_DAYS} days."),
+        13, 500, C.Orange, Modifier.padding(bottom = 10.u),
+    )
+    val all = remember { val e = Apps.essentials(ctx); Apps.launchable(ctx).filter { it.pkg !in e } }
+    val sel = Store.lockApps()
+    all.forEachIndexed { i, a ->
+        ItemRow(a.label, divider = i > 0, lead = { AppIcon(a.pkg, 38) }) {
+            Toggle(a.pkg in sel) { on -> Store.setLockApps(if (on) sel + a.pkg else sel - a.pkg) }
+        }
+    }
+}
+
+private val SUGGESTED = listOf("youtube", "instagram", "tiktok", "reels", "shorts", "facebook", "twitch", "x.com")
+
+@OptIn(ExperimentalLayoutApi::class)
+private fun openWords() = Sheets.open(tr("Webs y palabras", "Sites and words")) {
+    Store.rev.intValue
+    val words = Store.lockWords()
+    var input by remember { mutableStateOf("") }
+    fun add(w: String) { if (w.isNotBlank()) Store.setLockWords(words + w); input = "" }
+
+    T(
+        tr("Mientras el bloqueo esté activo, en cualquier navegador: si la dirección, lo que buscas o lo que escribes contiene una de estas, te saca. Así dejar Chrome abierto no es un atajo.",
+            "While the lock is on, in any browser: if the address, your search or what you type contains one of these, you are taken out. So leaving Chrome open is not a way around."),
+        14, 400, C.Muted, Modifier.padding(bottom = 12.u), lh = 1.35f,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.weight(1f).height(48.u).clip(RoundedCornerShape(16.u)).background(C.Bg).padding(horizontal = 14.u),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            if (input.isEmpty()) T(tr("youtube, tiktok.com…", "youtube, tiktok.com…"), 15, 400, C.Sub)
+            BasicTextField(
+                input, { input = it.replace("\n", "") }, singleLine = true,
+                textStyle = TextStyle(fontSize = 15.us, color = C.Ink),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { add(input) }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Box(
+            Modifier.padding(start = 8.u).height(48.u).clip(RoundedCornerShape(16.u)).background(C.Ink).tap { add(input) }.padding(horizontal = 16.u),
+            contentAlignment = Alignment.Center,
+        ) { T(tr("Añadir", "Add"), 14, 600, Color.White) }
+    }
+    val missing = SUGGESTED.filter { it !in words }
+    if (missing.isNotEmpty()) {
+        Gap(12)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.u), verticalArrangement = Arrangement.spacedBy(8.u)) {
+            missing.forEach { w ->
+                Box(Modifier.clip(RoundedCornerShape(14.u)).background(C.BlueTint).tap { add(w) }.padding(horizontal = 12.u, vertical = 7.u)) {
+                    T("+ $w", 13, 600, C.Blue)
+                }
+            }
+        }
+    }
+    Gap(14)
+    if (Store.committed) T(
+        tr("Quitar una espera ${Store.RELAX_DAYS} días.", "Removing one waits ${Store.RELAX_DAYS} days."),
+        13, 500, C.Orange, Modifier.padding(bottom = 6.u),
+    )
+    words.forEachIndexed { i, w ->
+        ItemRow(w, divider = i > 0, lead = { Tile(Ic.globe, C.Blue, size = 32) }) {
+            Box(Modifier.clip(RoundedCornerShape(12.u)).tap { Store.setLockWords(words - w) }.padding(6.u)) { Icon(Ic.close, 18, C.Chev, 2.2f) }
+        }
+    }
+}
+
+// ---------- turning it on and off ----------
+
+/** first of the confirmations: what is going to happen */
+private fun confirmLock() = Sheets.open(tr("¿Activar el bloqueo?", "Turn the lock on?")) {
+    val ctx = LocalContext.current
+    val apps = Store.lockApps().count { Apps.installed(ctx, it) }
     Points(
-        listOf(
-            tr("Activar bloqueos y endurecer horarios sigue siendo al instante.", "Turning blocks on and making schedules stricter stays instant."),
-            tr("Quitar o suavizar algo esperará ${Store.RELAX_DAYS} días.", "Removing or softening anything will wait ${Store.RELAX_DAYS} days."),
-            tr("Apagar Argos pedirá ${Store.DEACTIVATE_DAYS} días que no cuentan durante los bloqueos.", "Switching Argos off asks for ${Store.DEACTIVATE_DAYS} days that do not count during blocks."),
+        listOfNotNull(
+            if (apps > 0) tr("$apps apps se pausarán.", "$apps apps will be paused.") else null,
+            if (Store.lockWords().isNotEmpty()) tr("Tus webs y palabras se bloquearán en el navegador.", "Your sites and words will be blocked in the browser.") else null,
+            tr("Endurecer algo seguirá siendo al instante. Quitar o suavizar algo esperará ${Store.RELAX_DAYS} días.", "Making things stricter stays instant. Removing or softening anything waits ${Store.RELAX_DAYS} days."),
+            tr("Apagarlo pedirá ${Store.DEACTIVATE_DAYS} días, que no cuentan durante los bloqueos.", "Switching it off takes ${Store.DEACTIVATE_DAYS} days that do not count during blocks."),
             if (Lock.isOwner(ctx)) tr("No se podrá desinstalar. La única salida rápida es restablecer el móvil de fábrica.", "It can not be uninstalled. The only quick way out is a factory reset.")
             else tr("Sin el modo propietario aún se podría desinstalar.", "Without device owner it could still be uninstalled."),
         )
     )
     Gap(18)
-    BigButton(tr("Sí, bloquear", "Yes, lock it"), icon = Ic.lock) {
+    BigButton(tr("Continuar", "Continue")) { Sheets.close(); confirmLockHold() }
+}
+
+/** the last one: hold the button for three seconds, so it can not happen by accident */
+private fun confirmLockHold() = Sheets.open(tr("Última confirmación", "Last confirmation")) {
+    val ctx = LocalContext.current
+    T(
+        tr("Mantén pulsado el botón 3 segundos para activar el bloqueo.", "Hold the button for 3 seconds to turn the lock on."),
+        15, 500, C.Body, Modifier.padding(bottom = 18.u), lh = 1.35f,
+    )
+    HoldButton(tr("Mantén para bloquear", "Hold to lock")) {
         Store.commit(); Lock.sync(ctx); Sheets.close()
-        Toaster.show(tr("Argos es inquebrantable", "Argos is unbreakable"))
+        Toaster.show(tr("Bloqueo activo", "Lock on"))
+    }
+    Gap(10)
+    BigButton(tr("Mejor no", "Not now"), bg = Color.White, color = C.Ink) { Sheets.close() }
+}
+
+@Composable
+private fun HoldButton(label: String, onDone: () -> Unit) {
+    val p = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    Box(
+        Modifier.fillMaxWidth().height(56.u).clip(RoundedCornerShape(28.u)).background(C.Ink)
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    val run = scope.launch {
+                        p.animateTo(1f, tween(3000, easing = LinearEasing))
+                        onDone()
+                    }
+                    tryAwaitRelease()
+                    if (p.value < 1f) { run.cancel(); scope.launch { p.animateTo(0f, tween(250)) } }
+                })
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(p.value).background(C.Blue))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.u, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Ic.lock, 19, Color.White, 2f)
+            T(label, 17, 650, Color.White)
+        }
     }
 }
 
@@ -151,8 +360,38 @@ private fun confirmRequest() = Sheets.open(tr("¿Pedir la desactivación?", "Req
         )
     )
     Gap(18)
-    BigButton(tr("Solicitar", "Request")) {
-        Store.requestDeactivation(); Sheets.close()
+    BigButton(tr("Solicitar", "Request")) { Store.requestDeactivation(); Sheets.close() }
+}
+
+private fun confirmUnlockNow() = Sheets.open(tr("¿Quitar el bloqueo ya?", "Switch the lock off now?")) {
+    val ctx = LocalContext.current
+    Points(
+        listOf(
+            tr("Solo existe en la versión de pruebas.", "This only exists in the test version."),
+            tr("Las apps dejan de estar pausadas y Argos vuelve a como estaba antes de bloquearlo.", "Apps stop being paused and Argos goes back to how it was before locking."),
+            tr("El modo propietario se queda: no hace falta repetir los comandos.", "Device owner stays: the commands are not needed again."),
+        )
+    )
+    Gap(18)
+    BigButton(tr("Quitar el bloqueo", "Switch it off"), bg = C.Coral) {
+        Lock.unlockNow(ctx); Sheets.close()
+        Toaster.show(tr("Bloqueo quitado", "Lock off"))
+    }
+}
+
+private fun confirmDropOwner() = Sheets.open(tr("¿Quitar el modo inquebrantable?", "Drop unbreakable mode?")) {
+    val ctx = LocalContext.current
+    Points(
+        listOf(
+            tr("Argos deja de ser propietario del dispositivo ahora mismo.", "Argos stops being device owner right now."),
+            tr("Podrás desinstalarlo como cualquier app.", "You will be able to uninstall it like any app."),
+            tr("Para volver a tenerlo hay que repetir los comandos desde el ordenador.", "To get it back the commands have to be run again from a computer."),
+        )
+    )
+    Gap(18)
+    BigButton(tr("Quitarlo", "Drop it"), bg = C.Coral) {
+        val ok = Lock.dropOwner(ctx); Sheets.close()
+        Toaster.show(if (ok) tr("Listo. Ya puedes desinstalar Argos.", "Done. You can uninstall Argos now.") else tr("No se ha podido", "It did not work"))
     }
 }
 
