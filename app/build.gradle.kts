@@ -14,8 +14,8 @@ android {
         applicationId = "com.iagodf.argos"
         minSdk = 28
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.1.4"
+        versionCode = 6
+        versionName = "0.1.5"
     }
 
     // release key lives outside the repo, in keystore.properties
