@@ -93,13 +93,14 @@ class MainActivity : ComponentActivity() {
 }
 
 /** screens that open on top of a tab and keep its nav item */
-enum class Sub { None, Friction, Lock }
+enum class Sub { None, Friction }
 
 fun tabLabel(t: Tab) = when (t) {
     Tab.Home -> tr("Inicio", "Home")
     Tab.Blocks -> tr("Bloqueos", "Blocks")
     Tab.Focus -> "Focus"
     Tab.Schedules -> tr("Horarios", "Schedules")
+    Tab.Lock -> tr("Bloqueo", "Lock")
 }
 
 @Composable
@@ -124,9 +125,9 @@ fun App() {
                 }
                 Spacer(Modifier.height(18.u))
                 when {
-                    t == Tab.Home && s == Sub.Lock -> LockScreen()
+                    t == Tab.Lock -> LockScreen()
                     t == Tab.Home -> HomeScreen(
-                        openFocus = { tab = Tab.Focus }, openSchedules = { tab = Tab.Schedules }, openLock = { sub = Sub.Lock },
+                        openFocus = { tab = Tab.Focus }, openSchedules = { tab = Tab.Schedules }, openLock = { tab = Tab.Lock },
                         top = { SetupCard() },
                     )
                     t == Tab.Focus -> FocusScreen()
