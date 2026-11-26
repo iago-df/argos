@@ -100,7 +100,7 @@ class ArgosService : AccessibilityService() {
 
     private fun handle(pkg: String, type: Int, tap: AccessibilityEvent?, note: String?) {
         if (note != null) Diag.line(this, note)
-        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && focusCheck(pkg)) return
+        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && (lockCheck(pkg) || focusCheck(pkg))) return
         if (pkg in SETTINGS && Store.committed) { schedule(pkg); return }
         val feedApp = pkg == Apps.INSTAGRAM || pkg == Apps.YOUTUBE
         val web = !feedApp && Apps.isBrowser(this, pkg)
@@ -227,8 +227,13 @@ class ArgosService : AccessibilityService() {
                 follow(pkg, s, s.ytPlayer, chat = false)
             }
             else -> {
-                val url = s.url
-                if (pol.web && url != null && WEB.containsMatchIn(url)) block("web", tr("Bloqueado en la web", "Blocked on the web"))
+                val url = s.url ?: return
+                if (pol.web && WEB.containsMatchIn(url)) { block("web", tr("Bloqueado en la web", "Blocked on the web")); return }
+                // while locked, the words and sites you listed: in the address, a search or what you are typing
+                if (Store.committed) {
+                    val u = runCatching { java.net.URLDecoder.decode(url.replace("+", " "), "UTF-8") }.getOrDefault(url).lowercase()
+                    if (Store.lockWords().any { u.contains(it) }) block("web", tr("Bloqueado mientras Argos está bloqueado", "Blocked while Argos is locked"))
+                }
             }
         }
     }
@@ -301,6 +306,23 @@ class ArgosService : AccessibilityService() {
         val w = s.bounds.width().toFloat(); val h = s.bounds.height().toFloat()
         val path = android.graphics.Path().apply { moveTo(w / 2, s.bounds.top + h * .35f); lineTo(w / 2, s.bounds.top + h * .75f) }
         runCatching { dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, 180)).build(), null, null) }
+    }
+
+    private var essentials: Set<String> = emptySet()
+    private var essentialsAt = 0L
+
+    /** an app paused by the lock (when Argos is not device owner it can not be paused, so it is sent home) */
+    private fun lockCheck(pkg: String): Boolean {
+        if (pkg == packageName || !Store.committed || pkg !in Store.lockApps()) return false
+        val now = SystemClock.elapsedRealtime()
+        if (now - essentialsAt > 5 * 60_000L || essentials.isEmpty()) { essentials = Apps.essentials(this); essentialsAt = now }
+        if (pkg in essentials) return false
+        if (now - lastAction < 800) return true
+        lastAction = now
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        overlay.toast(tr("Pausada mientras Argos está bloqueado", "Paused while Argos is locked"))
+        Store.count("apps")
+        return true
     }
 
     private var launchable: Set<String> = emptySet()
