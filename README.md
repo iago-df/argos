@@ -96,19 +96,32 @@ Set up as device owner, Argos can not be uninstalled, the phone can not boot int
 
 ## How the lock works
 
+The **Lock** tab is where you get the lock ready. Nothing in it does anything until you turn it on, and turning it on takes two confirmations, the last one a 3 second press.
+
+What the lock adds while it is on:
+
+- **Paused apps.** The apps you pick are greyed out and do not open. Phone, messages, contacts, camera, gallery, email and clock can never be paused.
+- **Sites and words.** In any browser, if the address, the search or what you are typing contains one of them (`youtube`, `tiktok`, `instagram`…), you are taken out. Leaving Chrome open is not a way around.
+- Your blocks, schedules and friction stay as you set them in their tabs.
+
 | You want to… | What happens once Argos is locked (with the [unbreakable setup](#unbreakable-mode)) |
 | --- | --- |
-| Turn a block on, add a schedule, make one longer | Applies right away |
-| Turn a block off, shorten or delete a schedule, allow more apps, lower the friction | Waits 7 days, then applies by itself |
+| Turn a block on, add a schedule, pause one more app, add a word | Applies right away |
+| Turn a block off, shorten or delete a schedule, allow more apps, lower the friction, unpause an app, remove a word | Waits 7 days, then applies by itself |
 | End a focus early | Not possible |
 | Switch Argos off | Request it: 30 days that do not count during blocks |
-| Uninstall it, force stop it, clear its data | Blocked (device owner) |
+| Uninstall Argos, force stop it, clear its data | Blocked (device owner) |
+| Uninstall, clear or force stop any other app | Works as always |
 | Restart the phone | Argos comes back on its own |
 | Boot into safe mode, change the time | Blocked (device owner) |
 | Turn its accessibility service off | It is turned back on at once |
+| Update Argos | Install the new APK over it. The commands are not needed again |
 | Factory reset | Works. It is the emergency exit |
 
 Before you lock it, everything applies at once, so you can set it up calmly.
+
+> [!NOTE]
+> The current releases are test builds: the Lock tab also has **Switch off now (testing)**, so the lock can be lifted right away while Argos is being tuned. It will go in a later release, leaving only the 30 day request.
 
 ## Install on Android
 
@@ -121,17 +134,24 @@ No building needed. Android 9 or newer.
    - **Usage access**: for the time recovered.
    - **Notifications**: a quiet notification keeps Argos awake.
 
-That is enough for every block, Focus, schedules and friction. For the lock that can not be undone, keep going.
+That is enough for every block, Focus, schedules and friction. For the lock that can not be undone, see [Unbreakable mode](#unbreakable-mode).
 
 Each release lists the SHA-256 of the APK and of the signing certificate, so you can check the file is the original.
 
 ## Unbreakable mode
 
-Android only lets an app become **device owner** from a computer, and only while the phone has no accounts on it.
+Android only lets an app become **device owner** from a computer, and only while the phone has no accounts on it. It is done once, from any computer, and changes nothing until you turn the lock on.
 
-1. On the phone, remove your accounts in *Settings → Accounts* (Google, WhatsApp backup, etc.). You can add them back right after.
-2. Turn on **USB debugging** (*Settings → About phone →* tap *Build number* 7 times, then *System → Developer options*).
-3. Connect the phone and run:
+1. On the phone, remove **every** account in *Settings → Accounts* (Google, Outlook, Samsung, WhatsApp…), and any work profile, secure folder or second space. Keep their passwords at hand: you add them back at the end and everything syncs again. If one is left, the first command fails and nothing changes: remove it and run it again (`adb shell dumpsys account` lists them).
+2. On the computer, download **[SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)** and unzip it. That is where `adb` lives.
+3. On the phone, turn on **USB debugging**: *Settings → About phone →* tap *Build number* 7 times, then *Developer options → USB debugging*.
+4. Plug the phone in with a data cable and accept **Allow USB debugging?** on the phone. In a terminal inside the Platform-Tools folder, check that it is seen:
+
+```bash
+adb devices
+```
+
+5. Run the two commands:
 
 ```bash
 adb shell dpm set-device-owner com.iagodf.argos/.lock.ArgosAdmin
@@ -141,10 +161,12 @@ adb shell dpm set-device-owner com.iagodf.argos/.lock.ArgosAdmin
 adb shell pm grant com.iagodf.argos android.permission.WRITE_SECURE_SETTINGS
 ```
 
-The first command lets Argos block uninstalling, safe mode, changing the time and force stopping apps. The second lets it switch its own accessibility service back on and use Android's real black and white mode for friction.
+The first one answers `Success: Device owner set to package com.iagodf.argos` and makes Argos device owner. The second one prints nothing and lets Argos switch its own accessibility service back on and use Android's real black and white mode for friction.
 
-4. Add your accounts back.
-5. In Argos, tap the **Active blocks** card on Home and then **Lock Argos**.
+6. Unplug the phone (the computer is not needed anymore) and add your accounts back.
+7. Set up the **Lock** tab and turn the lock on when you are sure.
+
+Until you turn the lock on, **Drop unbreakable mode** in the Lock tab gives up device owner right away, so Argos can be uninstalled like any app.
 
 > [!WARNING]
 > Once locked, Argos also turns off USB debugging, so the commands above can not be used to undo it. The only ways out are the 30 day deactivation or a factory reset, which erases the phone. Lock it only if you mean it.
