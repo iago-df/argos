@@ -187,18 +187,39 @@ private fun SetupBody() {
     T(tr("Modo inquebrantable", "Unbreakable mode"), 17, 700)
     T(
         tr(
-            "Opcional y desde un ordenador. Quita antes las cuentas del móvil (Ajustes → Cuentas), activa la depuración USB y ejecuta:",
-            "Optional, from a computer. First remove the accounts from the phone (Settings → Accounts), turn on USB debugging and run:",
+            "Opcional. Se hace una sola vez desde cualquier ordenador y no cambia nada hasta que actives el bloqueo en la pestaña Bloqueo.",
+            "Optional. It is done once from any computer and changes nothing until you turn the lock on in the Lock tab.",
         ),
         14, 400, C.Muted, Modifier.padding(top = 6.u, bottom = 10.u), lh = 1.35f,
     )
+    Column(Modifier.padding(bottom = 12.u), verticalArrangement = Arrangement.spacedBy(8.u)) {
+        listOf(
+            tr("Quita todas las cuentas de Ajustes → Cuentas (Google, Outlook, Samsung, WhatsApp…) y cualquier perfil de trabajo, carpeta segura o segundo espacio. Ten a mano sus contraseñas: luego las vuelves a añadir.",
+                "Remove every account in Settings → Accounts (Google, Outlook, Samsung, WhatsApp…) and any work profile, secure folder or second space. Keep their passwords at hand: you add them back afterwards."),
+            tr("En el ordenador, descarga \"SDK Platform-Tools\" de developer.android.com y descomprímelo. Ahí está adb.",
+                "On the computer, download \"SDK Platform-Tools\" from developer.android.com and unzip it. adb is in there."),
+            tr("En el móvil: Ajustes → Información del teléfono, toca 7 veces Número de compilación. Luego Opciones de desarrollador → Depuración USB.",
+                "On the phone: Settings → About phone, tap Build number 7 times. Then Developer options → USB debugging."),
+            tr("Conecta el cable, acepta \"¿Permitir depuración USB?\" y, en una terminal dentro de esa carpeta, comprueba que adb devices muestra tu móvil.",
+                "Plug the cable in, accept \"Allow USB debugging?\" and, in a terminal inside that folder, check that adb devices lists your phone."),
+            tr("Ejecuta los dos comandos. El primero responde \"Success\"; el segundo no dice nada. Si dice que hay cuentas, quita la que falte y repítelo.",
+                "Run the two commands. The first one answers \"Success\"; the second one says nothing. If it says there are accounts, remove the one left and run it again."),
+            tr("Desconecta el cable (el ordenador ya no hace falta) y vuelve a añadir tus cuentas.",
+                "Unplug the cable (the computer is not needed anymore) and add your accounts back."),
+        ).forEachIndexed { i, t ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.u)) {
+                T("${i + 1}", 13, 700, C.Blue, Modifier.width(14.u))
+                T(t, 13, 400, C.Body, Modifier.weight(1f), lh = 1.35f)
+            }
+        }
+    }
     Command(Lock.ADB_OWNER, Lock.isOwner(ctx))
     Gap(8)
     Command(Lock.ADB_SETTINGS, Lock.canWriteSettings(ctx))
     T(
         tr(
-            "El primero impide desinstalarlo, el modo seguro y cambiar la hora. El segundo le deja volver a encender su servicio y usar el blanco y negro real. Después, bloquea Argos desde la tarjeta de Inicio.",
-            "The first one blocks uninstalling, safe mode and changing the time. The second lets it turn its own service back on and use real black and white. Then lock Argos from the Home card.",
+            "El primero hace a Argos propietario del dispositivo; el segundo le deja volver a encender su servicio y usar el blanco y negro real. Hasta que actives el bloqueo puedes quitarlo con un botón en la pestaña Bloqueo. Al actualizar Argos no hay que repetirlos.",
+            "The first one makes Argos device owner; the second lets it turn its own service back on and use real black and white. Until you turn the lock on you can drop it with a button in the Lock tab. Updating Argos does not need them again.",
         ),
         13, 400, C.Muted, Modifier.padding(top = 10.u), lh = 1.35f,
     )
