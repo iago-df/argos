@@ -48,6 +48,30 @@ object Apps {
         add("com.google.android.permissioncontroller"); add("com.android.permissioncontroller")
     }
 
+    /**
+     * what the lock can never pause: the phone has to keep working. calls, messages, contacts, camera,
+     * gallery, email, the clock, settings, the keyboard and the home screen
+     */
+    fun essentials(ctx: Context): Set<String> = buildSet {
+        addAll(alwaysAllowed(ctx))
+        runCatching { Telephony.Sms.getDefaultSmsPackage(ctx) }.getOrNull()?.let { add(it) }
+        resolve(ctx, Intent(MediaStore.ACTION_IMAGE_CAPTURE))?.let { add(it) }
+        resolve(ctx, Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA))?.let { add(it) }
+        resolve(ctx, Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS))?.let { add(it) }
+        listOf(
+            Intent.CATEGORY_APP_GALLERY, Intent.CATEGORY_APP_CONTACTS, Intent.CATEGORY_APP_MESSAGING, Intent.CATEGORY_APP_EMAIL,
+        ).forEach { c -> resolve(ctx, Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, c))?.let { add(it) } }
+        addAll(
+            listOf(
+                "com.google.android.gm", "com.google.android.apps.photos", "com.google.android.apps.messaging", "com.google.android.contacts",
+                "com.google.android.GoogleCamera", "com.google.android.deskclock", "com.android.camera", "com.android.camera2",
+                "com.android.gallery3d", "com.android.contacts", "com.android.mms", "com.android.messaging", "com.android.deskclock",
+                "com.samsung.android.dialer", "com.samsung.android.messaging", "com.samsung.android.app.contacts", "com.sec.android.app.camera",
+                "com.sec.android.gallery3d", "com.sec.android.app.clockpackage", "com.miui.gallery", "com.android.vending",
+            )
+        )
+    }
+
     /** the apps the video shows as allowed: phone, messages, maps, camera and gallery if found */
     fun defaultAllowed(ctx: Context): Set<String> = buildSet {
         dialer(ctx)?.let { add(it) }
