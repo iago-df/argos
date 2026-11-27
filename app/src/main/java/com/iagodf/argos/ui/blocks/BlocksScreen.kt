@@ -88,6 +88,23 @@ fun BlocksScreen(openFriction: () -> Unit) {
                 Icon(Ic.chev, 18, C.Chev, 2f)
             }
         }
+        Gap(12)
+        val words = Store.lockWords()
+        Card(Modifier.padding(horizontal = 16.u).fillMaxWidth(), padding = 0, onClick = { openWords() }) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.u, vertical = 14.u), verticalAlignment = Alignment.CenterVertically) {
+                Tile(Ic.globe, C.Blue)
+                Spacer(Modifier.width(12.u))
+                Column(Modifier.weight(1f)) {
+                    T(tr("Webs y palabras", "Sites and words"), 16, 650)
+                    T(
+                        if (words.isEmpty()) tr("Fuera de cualquier navegador", "Out of any browser") else words.take(3).joinToString(", ") + if (words.size > 3) "…" else "",
+                        12, 400, C.Muted, Modifier.padding(top = 2.u), lines = 1,
+                    )
+                }
+                Icon(Ic.chev, 18, C.Chev, 2f)
+            }
+        }
+        Store.pendingFor("lock_words")?.let { T(waitText(it.applyAt), 12, 500, C.Orange, Modifier.padding(start = 22.u, top = 8.u)) }
     }
 }
 

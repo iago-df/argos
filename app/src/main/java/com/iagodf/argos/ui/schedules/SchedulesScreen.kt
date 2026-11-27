@@ -74,12 +74,16 @@ fun scheduleSub(s: Schedule): String {
     return "${daysText(s.days)} · $time" + if (night) " · Focus" else ""
 }
 
+/** the schedules, at the bottom of the Focus tab: focus that turns on by itself, or reels only at some hours */
 @Composable
-fun SchedulesScreen() {
+fun SchedulesSection() {
     Store.rev.intValue
     Column {
-        Title(null, tr("Horarios", "Schedules"))
-        Gap(22)
+        T(tr("Horarios", "Schedules"), 16, 650, modifier = Modifier.padding(horizontal = 22.u))
+        T(
+            tr("Focus que se enciende solo, o Reels y Shorts fuera solo a ciertas horas.", "Focus that turns on by itself, or Reels and Shorts gone only at some hours."),
+            13, 400, C.Muted, Modifier.padding(start = 22.u, end = 22.u, top = 4.u, bottom = 14.u),
+        )
         WeekStrip()
         Gap(24)
         Store.schedules().forEach { s ->

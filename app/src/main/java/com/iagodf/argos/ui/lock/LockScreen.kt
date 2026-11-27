@@ -106,21 +106,14 @@ fun LockScreen() {
                     if (apps == 0) tr("Ninguna todavía", "None yet") else tr("$apps apps no se abrirán", "$apps apps will not open"),
                     divider = false, lead = { Tile(Ic.apps, C.Coral) }, onClick = { openApps() },
                 ) { Icon(Ic.chev, 18, C.Chev, 2f) }
-                val words = Store.lockWords()
                 ItemRow(
-                    tr("Webs y palabras", "Sites and words"),
-                    if (words.isEmpty()) tr("En cualquier navegador", "In any browser") else words.take(3).joinToString(", ") + if (words.size > 3) "…" else "",
-                    lead = { Tile(Ic.globe, C.Blue) }, onClick = { openWords() },
-                ) { Icon(Ic.chev, 18, C.Chev, 2f) }
-                ItemRow(
-                    tr("Bloqueos, horarios y fricción", "Blocks, schedules and friction"),
-                    tr("Se quedan como los tengas en sus pestañas", "They stay as you set them in their tabs"),
+                    tr("Bloqueos, webs, Focus y horarios", "Blocks, sites, Focus and schedules"),
+                    tr("Se quedan protegidos tal como los tengas", "They stay protected as you set them"),
                     lead = { Tile(Ic.cal, C.Orange) },
                 ) {}
             }
         }
         Store.pendingFor("lock_apps")?.let { PendingNote(tr("Apps pausadas", "Paused apps"), it.applyAt) }
-        Store.pendingFor("lock_words")?.let { PendingNote(tr("Webs y palabras", "Sites and words"), it.applyAt) }
         Gap(22)
 
         Section(tr("Qué no se podrá hacer", "What you will not be able to do"))
@@ -234,62 +227,6 @@ private fun openApps() = Sheets.open(tr("Apps pausadas", "Paused apps")) {
     }
 }
 
-private val SUGGESTED = listOf("youtube", "instagram", "tiktok", "reels", "shorts", "facebook", "twitch", "x.com")
-
-@OptIn(ExperimentalLayoutApi::class)
-private fun openWords() = Sheets.open(tr("Webs y palabras", "Sites and words")) {
-    Store.rev.intValue
-    val words = Store.lockWords()
-    var input by remember { mutableStateOf("") }
-    fun add(w: String) { if (w.isNotBlank()) Store.setLockWords(words + w); input = "" }
-
-    T(
-        tr("Mientras el bloqueo esté activo, en cualquier navegador: si la dirección, lo que buscas o lo que escribes contiene una de estas, te saca. Así dejar Chrome abierto no es un atajo.",
-            "While the lock is on, in any browser: if the address, your search or what you type contains one of these, you are taken out. So leaving Chrome open is not a way around."),
-        14, 400, C.Muted, Modifier.padding(bottom = 12.u), lh = 1.35f,
-    )
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.weight(1f).height(48.u).clip(RoundedCornerShape(16.u)).background(C.Bg).padding(horizontal = 14.u),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            if (input.isEmpty()) T(tr("youtube, tiktok.com…", "youtube, tiktok.com…"), 15, 400, C.Sub)
-            BasicTextField(
-                input, { input = it.replace("\n", "") }, singleLine = true,
-                textStyle = TextStyle(fontSize = 15.us, color = C.Ink),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { add(input) }),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        Box(
-            Modifier.padding(start = 8.u).height(48.u).clip(RoundedCornerShape(16.u)).background(C.Ink).tap { add(input) }.padding(horizontal = 16.u),
-            contentAlignment = Alignment.Center,
-        ) { T(tr("Añadir", "Add"), 14, 600, Color.White) }
-    }
-    val missing = SUGGESTED.filter { it !in words }
-    if (missing.isNotEmpty()) {
-        Gap(12)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.u), verticalArrangement = Arrangement.spacedBy(8.u)) {
-            missing.forEach { w ->
-                Box(Modifier.clip(RoundedCornerShape(14.u)).background(C.BlueTint).tap { add(w) }.padding(horizontal = 12.u, vertical = 7.u)) {
-                    T("+ $w", 13, 600, C.Blue)
-                }
-            }
-        }
-    }
-    Gap(14)
-    if (Store.committed) T(
-        tr("Quitar una espera ${Store.RELAX_DAYS} días.", "Removing one waits ${Store.RELAX_DAYS} days."),
-        13, 500, C.Orange, Modifier.padding(bottom = 6.u),
-    )
-    words.forEachIndexed { i, w ->
-        ItemRow(w, divider = i > 0, lead = { Tile(Ic.globe, C.Blue, size = 32) }) {
-            Box(Modifier.clip(RoundedCornerShape(12.u)).tap { Store.setLockWords(words - w) }.padding(6.u)) { Icon(Ic.close, 18, C.Chev, 2.2f) }
-        }
-    }
-}
-
 // ---------- turning it on and off ----------
 
 /** first of the confirmations: what is going to happen */
@@ -299,7 +236,6 @@ private fun confirmLock() = Sheets.open(tr("¿Activar el bloqueo?", "Turn the lo
     Points(
         listOfNotNull(
             if (apps > 0) tr("$apps apps se pausarán.", "$apps apps will be paused.") else null,
-            if (Store.lockWords().isNotEmpty()) tr("Tus webs y palabras se bloquearán en el navegador.", "Your sites and words will be blocked in the browser.") else null,
             tr("Endurecer algo seguirá siendo al instante. Quitar o suavizar algo esperará ${Store.RELAX_DAYS} días.", "Making things stricter stays instant. Removing or softening anything waits ${Store.RELAX_DAYS} days."),
             tr("Apagarlo pedirá ${Store.DEACTIVATE_DAYS} días, que no cuentan durante los bloqueos.", "Switching it off takes ${Store.DEACTIVATE_DAYS} days that do not count during blocks."),
             if (Lock.isOwner(ctx)) tr("No se podrá desinstalar. La única salida rápida es restablecer el móvil de fábrica.", "It can not be uninstalled. The only quick way out is a factory reset.")
