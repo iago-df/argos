@@ -99,6 +99,19 @@ object Apps {
     fun installed(ctx: Context, pkg: String) = runCatching { ctx.packageManager.getPackageInfo(pkg, 0); true }.getOrDefault(false)
 
     /** apps with an icon in the launcher, sorted by name */
+    @Volatile private var launchableCache: List<AppInfo>? = null
+
+    /** the last list read, or null if it was never read */
+    fun cachedLaunchable(): List<AppInfo>? = launchableCache
+
+    /** reading every app name is slow: it is done once (off the main thread) and kept */
+    fun launchableCached(ctx: Context, refresh: Boolean = false): List<AppInfo> =
+        launchableCache?.takeIf { !refresh } ?: launchable(ctx).also { launchableCache = it }
+
+    private val icons = android.util.LruCache<String, Bitmap>(240)
+
+    fun cachedIcon(pkg: String, px: Int): Bitmap? = icons.get("$pkg@$px")
+
     fun launchable(ctx: Context): List<AppInfo> {
         val pm = ctx.packageManager
         val i = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -119,6 +132,7 @@ object Apps {
         val b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
         d.setBounds(0, 0, px, px)
         d.draw(Canvas(b))
+        icons.put("$pkg@$px", b)
         b
     }.getOrNull()
 }

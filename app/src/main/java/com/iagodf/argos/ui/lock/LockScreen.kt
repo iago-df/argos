@@ -55,7 +55,6 @@ import com.iagodf.argos.ui.Tile
 import com.iagodf.argos.ui.Title
 import com.iagodf.argos.ui.Toaster
 import com.iagodf.argos.ui.Toggle
-import com.iagodf.argos.ui.focus.AppIcon
 import com.iagodf.argos.ui.tap
 import com.iagodf.argos.ui.u
 import com.iagodf.argos.ui.us
@@ -202,23 +201,20 @@ private fun Protect(icon: IconData, label: String, on: Boolean, divider: Boolean
 
 // ---------- what it blocks ----------
 
-private fun openApps() = Sheets.open(tr("Apps pausadas", "Paused apps")) {
+private fun openApps() = Sheets.open(tr("Apps pausadas", "Paused apps"), scroll = false) {
     Store.rev.intValue
-    val ctx = LocalContext.current
-    T(
-        tr("Mientras el bloqueo esté activo, estas apps se pausan: salen en gris y no se abren. Teléfono, mensajes, contactos, cámara, galería, correo y reloj no se pueden pausar.",
-            "While the lock is on, these apps are paused: greyed out, they do not open. Phone, messages, contacts, camera, gallery, email and clock can not be paused."),
-        14, 400, C.Muted, Modifier.padding(bottom = 10.u), lh = 1.35f,
-    )
-    if (Store.committed) T(
-        tr("Quitar apps de la lista espera ${Store.RELAX_DAYS} días.", "Taking apps off the list waits ${Store.RELAX_DAYS} days."),
-        13, 500, C.Orange, Modifier.padding(bottom = 10.u),
-    )
-    val all = remember { val e = Apps.essentials(ctx); Apps.launchable(ctx).filter { it.pkg !in e } }
     val sel = Store.lockApps()
-    all.forEachIndexed { i, a ->
-        ItemRow(a.label, divider = i > 0, lead = { AppIcon(a.pkg, 38) }) {
-            Toggle(a.pkg in sel) { on -> Store.setLockApps(if (on) sel + a.pkg else sel - a.pkg) }
+    com.iagodf.argos.ui.AppPicker(sel, { pkg, on -> Store.setLockApps(if (on) sel + pkg else sel - pkg) }, exclude = { Apps.essentials(it) }) {
+        Column {
+            T(
+                tr("Mientras el bloqueo esté activo, estas apps se pausan: salen en gris y no se abren. Teléfono, mensajes, contactos, cámara, galería, correo y reloj no se pueden pausar.",
+                    "While the lock is on, these apps are paused: greyed out, they do not open. Phone, messages, contacts, camera, gallery, email and clock can not be paused."),
+                14, 400, C.Muted, Modifier.padding(bottom = 10.u), lh = 1.35f,
+            )
+            if (Store.committed) T(
+                tr("Quitar apps de la lista espera ${Store.RELAX_DAYS} días.", "Taking apps off the list waits ${Store.RELAX_DAYS} days."),
+                13, 500, C.Orange, Modifier.padding(bottom = 10.u),
+            )
         }
     }
 }
