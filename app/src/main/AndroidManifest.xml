@@ -15,6 +15,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- to install Argos Setup, which comes inside this apk, when you ask for it -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- only granted with adb: lets Argos turn its service back on and use real black and white -->
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
@@ -82,15 +84,9 @@
             </intent-filter>
         </receiver>
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.files"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/files" />
-        </provider>
+        <receiver
+            android:name=".lock.SetupStatus"
+            android:exported="false" />
     </application>
 
 </manifest>

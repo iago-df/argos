@@ -1,5 +1,6 @@
 package com.iagodf.argos
 
+import android.content.Intent
 import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -57,7 +58,6 @@ import com.iagodf.argos.ui.lock.LockScreen
 import com.iagodf.argos.ui.setup.SetupCard
 import com.iagodf.argos.ui.settings.openSettings
 import com.iagodf.argos.ui.friction.FrictionScreen
-import com.iagodf.argos.ui.schedules.SchedulesScreen
 import com.iagodf.argos.ui.blocks.BlocksScreen
 import com.iagodf.argos.ui.home.ActivitySheet
 import com.iagodf.argos.ui.home.HomeScreen
@@ -68,11 +68,23 @@ class ArgosApp : Application() {
         super.onCreate()
         Lang.load(this)
         Store.init(this)
-        com.iagodf.argos.engine.Diag.load(this)
     }
 }
 
 class MainActivity : ComponentActivity() {
+    /** Argos Setup opens Argos when it is done: switch wireless debugging off and remove the helper */
+    private fun fromSetup(i: Intent?) {
+        if (i?.getBooleanExtra("from_setup", false) != true) return
+        i.removeExtra("from_setup")
+        com.iagodf.argos.lock.SetupApp.cleanUp(this)
+        com.iagodf.argos.ui.Toaster.show(tr("Listo. Ya puedes volver a añadir tus cuentas.", "Done. You can add your accounts back."))
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        fromSetup(intent)
+    }
+
     override fun onResume() {
         super.onResume()
         com.iagodf.argos.lock.Guard.start(this)
@@ -81,6 +93,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        fromSetup(intent)
         val clear = android.graphics.Color.TRANSPARENT
         enableEdgeToEdge(SystemBarStyle.light(clear, C.Ink.toArgb()), SystemBarStyle.light(clear, C.Ink.toArgb()))
         setContent {
@@ -99,7 +112,6 @@ fun tabLabel(t: Tab) = when (t) {
     Tab.Home -> tr("Inicio", "Home")
     Tab.Blocks -> tr("Bloqueos", "Blocks")
     Tab.Focus -> "Focus"
-    Tab.Schedules -> tr("Horarios", "Schedules")
     Tab.Lock -> tr("Bloqueo", "Lock")
 }
 
@@ -127,11 +139,10 @@ fun App() {
                 when {
                     t == Tab.Lock -> LockScreen()
                     t == Tab.Home -> HomeScreen(
-                        openFocus = { tab = Tab.Focus }, openSchedules = { tab = Tab.Schedules }, openLock = { tab = Tab.Lock },
+                        openFocus = { tab = Tab.Focus }, openSchedules = { tab = Tab.Focus }, openLock = { tab = Tab.Lock },
                         top = { SetupCard() },
                     )
                     t == Tab.Focus -> FocusScreen()
-                    t == Tab.Schedules -> SchedulesScreen()
                     t == Tab.Blocks && s == Sub.Friction -> FrictionScreen()
                     t == Tab.Blocks -> BlocksScreen(openFriction = { sub = Sub.Friction })
                     else -> Unit

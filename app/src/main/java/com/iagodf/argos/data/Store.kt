@@ -114,7 +114,6 @@ object Store {
 
     private fun defaultSchedules() = listOf(
         Schedule(1, tr("Focus total", "Deep focus"), Kind.Focus, Schedule.WEEKDAYS, 9 * 60, 14 * 60, false),
-        Schedule(2, tr("Sin Reels ni Shorts", "No Reels or Shorts"), Kind.NoReels, Schedule.EVERY_DAY, 0, 0, true),
         Schedule(3, tr("Noche", "Night"), Kind.Focus, Schedule.EVERY_DAY, 23 * 60, 8 * 60, false),
     )
 

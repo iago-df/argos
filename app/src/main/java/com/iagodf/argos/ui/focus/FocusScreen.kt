@@ -112,6 +112,8 @@ fun FocusScreen() {
                 else -> BigButton(tr("Terminar Focus", "End Focus"), bg = Color.White, color = C.Ink) { Store.stopFocus() }
             }
         }
+        Gap(34)
+        com.iagodf.argos.ui.schedules.SchedulesSection()
     }
 }
 
