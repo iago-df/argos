@@ -68,6 +68,8 @@ class ArgosApp : Application() {
         super.onCreate()
         Lang.load(this)
         Store.init(this)
+        // the app list for the pickers, ready before anyone opens them
+        Thread { runCatching { com.iagodf.argos.data.Apps.launchableCached(this) } }.start()
     }
 }
 

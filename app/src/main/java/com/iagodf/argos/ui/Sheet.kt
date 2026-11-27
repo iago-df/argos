@@ -55,23 +55,25 @@ object Sheets {
     var visible by mutableStateOf(false); private set
     var title by mutableStateOf<String?>(null); private set
     var body by mutableStateOf<(@Composable ColumnScope.() -> Unit)?>(null); private set
+    /** false when the body is a lazy list that scrolls by itself */
+    var scroll by mutableStateOf(true); private set
 
-    fun open(title: String?, body: @Composable ColumnScope.() -> Unit) {
-        this.title = title; this.body = body; visible = true
+    fun open(title: String?, scroll: Boolean = true, body: @Composable ColumnScope.() -> Unit) {
+        this.title = title; this.body = body; this.scroll = scroll; visible = true
     }
 
     fun close() { visible = false }
 }
 
 @Composable
-fun SheetHost() = Sheet(Sheets.visible, Sheets::close, Sheets.title) { Sheets.body?.invoke(this) }
+fun SheetHost() = Sheet(Sheets.visible, Sheets::close, Sheets.title, Sheets.scroll) { Sheets.body?.invoke(this) }
 
 /**
  * bottom sheet with the app look. it follows the finger, and when you let go it leaves from right there
  * with the speed of your swipe (or springs back if you did not pull far enough)
  */
 @Composable
-fun Sheet(open: Boolean, onClose: () -> Unit, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+fun Sheet(open: Boolean, onClose: () -> Unit, title: String? = null, scroll: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     val screen = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
     var y by remember { mutableFloatStateOf(screen) }
     var present by remember { mutableStateOf(open) }
@@ -165,7 +167,8 @@ fun Sheet(open: Boolean, onClose: () -> Unit, title: String? = null, content: @C
                 Box(Modifier.size(40.u, 5.u).clip(RoundedCornerShape(3.u)).background(C.ToggleOff))
             }
             if (title != null) T(title, 22, 700, ls = -.03f, modifier = Modifier.padding(top = 4.u, bottom = 14.u))
-            Column(Modifier.verticalScroll(rememberScrollState()), content = content)
+            if (scroll) Column(Modifier.verticalScroll(rememberScrollState()), content = content)
+            else Column(Modifier.weight(1f, fill = false), content = content)
         }
     }
 }

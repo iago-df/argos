@@ -55,7 +55,6 @@ import com.iagodf.argos.ui.Tile
 import com.iagodf.argos.ui.Title
 import com.iagodf.argos.ui.Toaster
 import com.iagodf.argos.ui.Toggle
-import com.iagodf.argos.ui.focus.AppIcon
 import com.iagodf.argos.ui.tap
 import com.iagodf.argos.ui.u
 import com.iagodf.argos.ui.us
@@ -138,7 +137,19 @@ fun LockScreen() {
 
         Column(Modifier.padding(horizontal = 16.u), verticalArrangement = Arrangement.spacedBy(10.u)) {
             when {
-                !committed -> BigButton(tr("Activar el bloqueo", "Turn the lock on"), icon = Ic.lock) { confirmLock() }
+                !committed -> {
+                    // the lock asks for the same steps as the real one: the test build only differs in switching it off
+                    val missing = listOfNotNull(
+                        if (!com.iagodf.argos.engine.ArgosService.enabled(ctx)) tr("Activa el servicio de accesibilidad (Ajustes → Configurar).", "Turn the accessibility service on (Settings → Setup).") else null,
+                        if (!owner) tr("Haz el modo inquebrantable (arriba).", "Set up unbreakable mode (above).") else null,
+                        if (owner && !Lock.canWriteSettings(ctx)) tr("Falta el segundo permiso del modo inquebrantable (arriba).", "The second permission of unbreakable mode is missing (above).") else null,
+                    )
+                    BigButton(tr("Activar el bloqueo", "Turn the lock on"), icon = Ic.lock, enabled = missing.isEmpty()) { if (missing.isEmpty()) confirmLock() }
+                    if (missing.isNotEmpty()) Column(Modifier.padding(horizontal = 6.u), verticalArrangement = Arrangement.spacedBy(4.u)) {
+                        T(tr("Para activarlo, antes:", "To turn it on, first:"), 13, 600, C.Muted)
+                        missing.forEach { T("· $it", 13, 400, C.Muted, lh = 1.35f) }
+                    }
+                }
                 Store.deactReady -> BigButton(tr("Desactivar Argos", "Deactivate Argos"), bg = C.Coral) {
                     Store.finishDeactivation(); Lock.release(ctx)
                     Toaster.show(tr("Argos desactivado. Ya puedes desinstalarlo.", "Argos is off. You can uninstall it now."))
@@ -202,23 +213,20 @@ private fun Protect(icon: IconData, label: String, on: Boolean, divider: Boolean
 
 // ---------- what it blocks ----------
 
-private fun openApps() = Sheets.open(tr("Apps pausadas", "Paused apps")) {
+private fun openApps() = Sheets.open(tr("Apps pausadas", "Paused apps"), scroll = false) {
     Store.rev.intValue
-    val ctx = LocalContext.current
-    T(
-        tr("Mientras el bloqueo esté activo, estas apps se pausan: salen en gris y no se abren. Teléfono, mensajes, contactos, cámara, galería, correo y reloj no se pueden pausar.",
-            "While the lock is on, these apps are paused: greyed out, they do not open. Phone, messages, contacts, camera, gallery, email and clock can not be paused."),
-        14, 400, C.Muted, Modifier.padding(bottom = 10.u), lh = 1.35f,
-    )
-    if (Store.committed) T(
-        tr("Quitar apps de la lista espera ${Store.RELAX_DAYS} días.", "Taking apps off the list waits ${Store.RELAX_DAYS} days."),
-        13, 500, C.Orange, Modifier.padding(bottom = 10.u),
-    )
-    val all = remember { val e = Apps.essentials(ctx); Apps.launchable(ctx).filter { it.pkg !in e } }
     val sel = Store.lockApps()
-    all.forEachIndexed { i, a ->
-        ItemRow(a.label, divider = i > 0, lead = { AppIcon(a.pkg, 38) }) {
-            Toggle(a.pkg in sel) { on -> Store.setLockApps(if (on) sel + a.pkg else sel - a.pkg) }
+    com.iagodf.argos.ui.AppPicker(sel, { pkg, on -> Store.setLockApps(if (on) sel + pkg else sel - pkg) }, exclude = { Apps.essentials(it) }) {
+        Column {
+            T(
+                tr("Mientras el bloqueo esté activo, estas apps se pausan: salen en gris y no se abren. Teléfono, mensajes, contactos, cámara, galería, correo y reloj no se pueden pausar.",
+                    "While the lock is on, these apps are paused: greyed out, they do not open. Phone, messages, contacts, camera, gallery, email and clock can not be paused."),
+                14, 400, C.Muted, Modifier.padding(bottom = 10.u), lh = 1.35f,
+            )
+            if (Store.committed) T(
+                tr("Quitar apps de la lista espera ${Store.RELAX_DAYS} días.", "Taking apps off the list waits ${Store.RELAX_DAYS} days."),
+                13, 500, C.Orange, Modifier.padding(bottom = 10.u),
+            )
         }
     }
 }

@@ -45,6 +45,7 @@ import com.iagodf.argos.ui.Ic
 import com.iagodf.argos.ui.Icon
 import com.iagodf.argos.ui.Ring
 import com.iagodf.argos.ui.Sheets
+import com.iagodf.argos.ui.AppIcon
 import com.iagodf.argos.ui.T
 import com.iagodf.argos.ui.Title
 import com.iagodf.argos.ui.Toaster
@@ -95,7 +96,7 @@ fun FocusScreen() {
 
         Row(Modifier.fillMaxWidth().padding(horizontal = 22.u), verticalAlignment = Alignment.CenterVertically) {
             T(tr("Apps permitidas", "Allowed apps"), 16, 650, modifier = Modifier.weight(1f))
-            T(tr("Editar", "Edit"), 13, 500, C.Blue, Modifier.tap { Sheets.open(tr("Apps permitidas", "Allowed apps")) { AllowedBody() } }.padding(4.u))
+            T(tr("Editar", "Edit"), 13, 500, C.Blue, Modifier.tap { Sheets.open(tr("Apps permitidas", "Allowed apps"), scroll = false) { AllowedBody() } }.padding(4.u))
         }
         Gap(14)
         AllowedGrid(Store.allowed().toList(), checks = pol.focus)
@@ -143,15 +144,6 @@ private fun AllowedGrid(pkgs: List<String>, checks: Boolean) {
     }
 }
 
-@Composable
-fun AppIcon(pkg: String, size: Number) {
-    val ctx = LocalContext.current
-    val px = with(androidx.compose.ui.platform.LocalDensity.current) { size.u.roundToPx() }
-    val bmp = remember(pkg, px) { Apps.icon(ctx, pkg, px)?.asImageBitmap() }
-    Box(Modifier.size(size.u).softShadow(6.dp, RoundedCornerShape(17.u), .12f).clip(RoundedCornerShape(17.u)).background(Color.White)) {
-        if (bmp != null) Image(bmp, null, Modifier.size(size.u))
-    }
-}
 
 @Composable
 private fun LengthBody() {
@@ -174,22 +166,17 @@ private fun LengthBody() {
 @Composable
 private fun AllowedBody() {
     Store.rev.intValue
-    val ctx = LocalContext.current
-    run {
-        T(
-            tr("Durante Focus solo se abren estas. Llamadas y ajustes siempre funcionan.", "During Focus only these open. Calls and settings always work."),
-            14, 400, C.Muted, Modifier.padding(bottom = 10.u),
-        )
-        if (Store.committed) T(
-            tr("Quitar apps es relajar: espera ${Store.RELAX_DAYS} días.", "Removing apps relaxes Focus: it waits ${Store.RELAX_DAYS} days."),
-            13, 500, C.Orange, Modifier.padding(bottom = 10.u),
-        )
-        val all = remember { Apps.launchable(ctx) }
-        val sel = Store.allowed()
-        all.forEachIndexed { i, a ->
-            com.iagodf.argos.ui.ItemRow(a.label, divider = i > 0, lead = { AppIcon(a.pkg, 38) }) {
-                com.iagodf.argos.ui.Toggle(a.pkg in sel) { on -> Store.setAllowed(if (on) sel + a.pkg else sel - a.pkg) }
-            }
+    val sel = Store.allowed()
+    com.iagodf.argos.ui.AppPicker(sel, { pkg, on -> Store.setAllowed(if (on) sel + pkg else sel - pkg) }) {
+        androidx.compose.foundation.layout.Column {
+            T(
+                tr("Durante Focus solo se abren estas. Llamadas y ajustes siempre funcionan.", "During Focus only these open. Calls and settings always work."),
+                14, 400, C.Muted, Modifier.padding(bottom = 10.u),
+            )
+            if (Store.committed) T(
+                tr("Quitar apps es relajar: espera ${Store.RELAX_DAYS} días.", "Removing apps relaxes Focus: it waits ${Store.RELAX_DAYS} days."),
+                13, 500, C.Orange, Modifier.padding(bottom = 10.u),
+            )
         }
     }
 }
