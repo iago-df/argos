@@ -47,9 +47,15 @@ class Adb private constructor(private val key: PrivateKey, private val cert: Cer
     /** runs one shell command and gives back what it printed */
     fun run(cmd: String): String {
         val s = openStream("shell:$cmd")
-        val out = s.openInputStream().bufferedReader().use { it.readText() }
+        val out = java.io.ByteArrayOutputStream()
+        val input = s.openInputStream()
+        val buf = ByteArray(4096)
+        // when the command ends the stream closes: the library says "Stream closed" instead of returning -1
+        try {
+            while (true) { val n = input.read(buf); if (n < 0) break; out.write(buf, 0, n) }
+        } catch (_: java.io.IOException) { }
         runCatching { s.close() }
-        return out.trim()
+        return out.toString("UTF-8").trim()
     }
 
     companion object {

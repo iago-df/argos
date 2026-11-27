@@ -124,13 +124,28 @@ class SetupService : Service() {
         Progress.set(Progress.Stage.Working, tr("Conectando…", "Connecting…"))
         foreground(tr("Conectando…", "Connecting…"), withReply = false)
         val adb = Adb.get(this)
-        try {
-            if (!adb.isConnected && !adb.connectTls(this, 20_000)) adb.connect(5555)
-        } catch (e: AdbPairingRequiredException) {
-            Progress.paired = false
-            pairingPort = -1
-            discover()
-            ask(tr("Hay que vincular otra vez: toca \"Vincular con código\".", "It needs pairing again: tap \"Pair with code\"."))
+        // right after pairing, android takes a moment to trust the new key: the first tries can be turned down
+        var connected = adb.isConnected
+        var tries = 0
+        while (!connected && tries < 6) {
+            tries++
+            Thread.sleep(if (tries == 1) 1500 else 2000)
+            connected = try {
+                runCatching { adb.disconnect() }
+                adb.connectTls(this, 10_000)
+            } catch (e: AdbPairingRequiredException) {
+                if (tries < 6) false else {
+                    Progress.paired = false
+                    pairingPort = -1
+                    discover()
+                    ask(tr("Hay que vincular otra vez: toca \"Vincular con código\".", "It needs pairing again: tap \"Pair with code\"."))
+                    return
+                }
+            } catch (e: Exception) { false }
+        }
+        if (!connected) {
+            fail(tr("No he podido conectar con la depuración inalámbrica. Comprueba que sigue activada y toca Reintentar.",
+                "Could not connect to wireless debugging. Check it is still on and tap Retry."))
             return
         }
 
