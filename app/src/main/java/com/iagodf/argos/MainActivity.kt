@@ -1,5 +1,6 @@
 package com.iagodf.argos
 
+import android.content.Intent
 import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -71,6 +72,19 @@ class ArgosApp : Application() {
 }
 
 class MainActivity : ComponentActivity() {
+    /** Argos Setup opens Argos when it is done: switch wireless debugging off and remove the helper */
+    private fun fromSetup(i: Intent?) {
+        if (i?.getBooleanExtra("from_setup", false) != true) return
+        i.removeExtra("from_setup")
+        com.iagodf.argos.lock.SetupApp.cleanUp(this)
+        com.iagodf.argos.ui.Toaster.show(tr("Listo. Ya puedes volver a añadir tus cuentas.", "Done. You can add your accounts back."))
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        fromSetup(intent)
+    }
+
     override fun onResume() {
         super.onResume()
         com.iagodf.argos.lock.Guard.start(this)
@@ -79,6 +93,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        fromSetup(intent)
         val clear = android.graphics.Color.TRANSPARENT
         enableEdgeToEdge(SystemBarStyle.light(clear, C.Ink.toArgb()), SystemBarStyle.light(clear, C.Ink.toArgb()))
         setContent {

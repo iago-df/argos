@@ -130,15 +130,11 @@ fun LockScreen() {
                 "The rest of the phone stays the same: your other apps install, update and uninstall as always."),
             12, 500, C.Muted, Modifier.padding(start = 22.u, end = 22.u, top = 8.u), lh = 1.35f,
         )
-        if (!owner) {
-            Gap(8)
-            T(
-                tr("Sin el modo propietario (Ajustes → Configurar), Argos aún se podría desinstalar y las apps se cierran en vez de pausarse.",
-                    "Without device owner (Settings → Setup), Argos could still be uninstalled and apps are closed instead of paused."),
-                12, 500, C.Orange, Modifier.padding(horizontal = 22.u), lh = 1.35f,
-            )
+        Gap(22)
+        if (!committed || !owner) {
+            UnbreakableCard()
+            Gap(24)
         }
-        Gap(24)
 
         Column(Modifier.padding(horizontal = 16.u), verticalArrangement = Arrangement.spacedBy(10.u)) {
             when {
