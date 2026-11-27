@@ -56,7 +56,6 @@ class ArgosService : AccessibilityService() {
         super.onServiceConnected()
         Lang.load(this)
         Store.init(this)
-        Diag.load(this)
         overlay = Overlay(this)
         com.iagodf.argos.lock.Guard.start(this)
         friction = FrictionEngine(this, overlay)
@@ -78,19 +77,7 @@ class ArgosService : AccessibilityService() {
         // taps are read on the engine thread, so a copy is kept (the event itself is reused by android)
         @Suppress("DEPRECATION")
         val copy = if (feedApp && (type == AccessibilityEvent.TYPE_VIEW_CLICKED || type == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED)) AccessibilityEvent.obtain(e) else null
-        val note = if (Diag.on && (feedApp || Apps.isBrowser(this, pkg))) describe(e) else null
-        work.post { safe { handle(pkg, type, copy, note) } }
-    }
-
-    private fun describe(e: AccessibilityEvent) = buildString {
-        append(AccessibilityEvent.eventTypeToString(e.eventType)).append(' ').append(e.packageName)
-        e.className?.let { append(" cls=").append(it) }
-        e.contentDescription?.let { append(" d=\"").append(it.toString().take(50)).append('"') }
-        if (e.text.isNotEmpty()) append(" t=\"").append(e.text.joinToString(" ").take(50)).append('"')
-        if (e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-            append(" from=").append(e.fromIndex).append(" to=").append(e.toIndex).append(" n=").append(e.itemCount)
-            append(" dy=").append(e.scrollDeltaY).append(" y=").append(e.scrollY)
-        }
+        work.post { safe { handle(pkg, type, copy) } }
     }
 
     /** an exception in an accessibility service makes android switch it off for good, so nothing escapes */
@@ -98,8 +85,7 @@ class ArgosService : AccessibilityService() {
         try { block() } catch (t: Throwable) { android.util.Log.w("Argos", "engine", t) }
     }
 
-    private fun handle(pkg: String, type: Int, tap: AccessibilityEvent?, note: String?) {
-        if (note != null) Diag.line(this, note)
+    private fun handle(pkg: String, type: Int, tap: AccessibilityEvent?) {
         if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && (lockCheck(pkg) || focusCheck(pkg))) return
         if (pkg in SETTINGS && Store.committed) { schedule(pkg); return }
         val feedApp = pkg == Apps.INSTAGRAM || pkg == Apps.YOUTUBE
@@ -203,7 +189,6 @@ class ArgosService : AccessibilityService() {
     private fun inspect(pkg: String) {
         val root = rootOf(pkg) ?: return
         val s = Screen(root)
-        Diag.screen(this, pkg, s)
         if (pkg in SETTINGS) {
             if (Store.committed && s.dangerForArgos) {
                 lastAction = 0
@@ -229,10 +214,11 @@ class ArgosService : AccessibilityService() {
             else -> {
                 val url = s.url ?: return
                 if (pol.web && WEB.containsMatchIn(url)) { block("web", tr("Bloqueado en la web", "Blocked on the web")); return }
-                // while locked, the words and sites you listed: in the address, a search or what you are typing
-                if (Store.committed) {
+                // the words and sites you listed: in the address, a search or what you are typing
+                val words = Store.lockWords()
+                if (words.isNotEmpty()) {
                     val u = runCatching { java.net.URLDecoder.decode(url.replace("+", " "), "UTF-8") }.getOrDefault(url).lowercase()
-                    if (Store.lockWords().any { u.contains(it) }) block("web", tr("Bloqueado mientras Argos está bloqueado", "Blocked while Argos is locked"))
+                    if (words.any { u.contains(it) }) block("web", tr("Bloqueado por Argos", "Blocked by Argos"))
                 }
             }
         }

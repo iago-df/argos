@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -24,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.iagodf.argos.data.Lang
 import com.iagodf.argos.data.tr
-import com.iagodf.argos.engine.Diag
 import com.iagodf.argos.ui.Toggle
 import com.iagodf.argos.ui.C
 import com.iagodf.argos.ui.Gap
@@ -62,22 +60,6 @@ private fun SettingsBody() {
     Gap(18)
     ItemRow(tr("Configurar", "Setup"), tr("Permisos y modo inquebrantable", "Permissions and unbreakable mode"), divider = false,
         lead = { Tile(Ic.shield, C.Ink) }, onClick = { openSetup() }) { Icon(Ic.chev, 18, C.Chev, 2f) }
-    // a recording of what instagram and youtube show, to tune argos to a real phone
-    var rec by remember { mutableStateOf(Diag.on) }
-    var size by remember { mutableLongStateOf(Diag.size(ctx)) }
-    ItemRow(
-        tr("Grabar pantallas", "Record screens"),
-        if (rec) tr("Grabando. Usa Instagram y vuelve", "Recording. Use Instagram and come back")
-        else tr("Para ajustar Argos a tu móvil", "To tune Argos to your phone"),
-        lead = { Tile(Ic.eye, C.Orange) },
-    ) { Toggle(rec, onChange = { Diag.set(ctx, it); rec = it; size = Diag.size(ctx) }) }
-    if (size > 0) {
-        ItemRow(
-            tr("Enviar grabación", "Send recording"),
-            tr("${size / 1024} KB · incluye textos cortos de la pantalla", "${size / 1024} KB · includes short texts from the screen"),
-            lead = { Tile(Ic.info, C.Blue) }, onClick = { Diag.share(ctx) },
-        ) { Icon(Ic.chev, 18, C.Chev, 2f) }
-    }
     ItemRow("GitHub", "github.com/iago-df/argos",
         lead = { Tile(Ic.globe, C.Blue) },
         onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/iago-df/argos")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
