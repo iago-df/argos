@@ -124,7 +124,7 @@ What the lock adds while it is on:
 Before you lock it, everything applies at once, so you can set it up calmly.
 
 > [!NOTE]
-> The current releases are test builds: the Lock tab also has **Switch off now (testing)**, so the lock can be lifted right away while Argos is being tuned. It will go in a later release, leaving only the 30 day request.
+> The current releases are test builds. Turning the lock on asks for the same as the real thing (the accessibility service and the unbreakable mode), but once it is on, **Switch off now (testing)** lifts it right away while Argos is being tuned. That button will go in a later release, leaving only the 30 day request.
 
 ## Install on Android
 

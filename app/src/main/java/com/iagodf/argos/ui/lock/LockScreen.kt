@@ -137,7 +137,19 @@ fun LockScreen() {
 
         Column(Modifier.padding(horizontal = 16.u), verticalArrangement = Arrangement.spacedBy(10.u)) {
             when {
-                !committed -> BigButton(tr("Activar el bloqueo", "Turn the lock on"), icon = Ic.lock) { confirmLock() }
+                !committed -> {
+                    // the lock asks for the same steps as the real one: the test build only differs in switching it off
+                    val missing = listOfNotNull(
+                        if (!com.iagodf.argos.engine.ArgosService.enabled(ctx)) tr("Activa el servicio de accesibilidad (Ajustes → Configurar).", "Turn the accessibility service on (Settings → Setup).") else null,
+                        if (!owner) tr("Haz el modo inquebrantable (arriba).", "Set up unbreakable mode (above).") else null,
+                        if (owner && !Lock.canWriteSettings(ctx)) tr("Falta el segundo permiso del modo inquebrantable (arriba).", "The second permission of unbreakable mode is missing (above).") else null,
+                    )
+                    BigButton(tr("Activar el bloqueo", "Turn the lock on"), icon = Ic.lock, enabled = missing.isEmpty()) { if (missing.isEmpty()) confirmLock() }
+                    if (missing.isNotEmpty()) Column(Modifier.padding(horizontal = 6.u), verticalArrangement = Arrangement.spacedBy(4.u)) {
+                        T(tr("Para activarlo, antes:", "To turn it on, first:"), 13, 600, C.Muted)
+                        missing.forEach { T("· $it", 13, 400, C.Muted, lh = 1.35f) }
+                    }
+                }
                 Store.deactReady -> BigButton(tr("Desactivar Argos", "Deactivate Argos"), bg = C.Coral) {
                     Store.finishDeactivation(); Lock.release(ctx)
                     Toaster.show(tr("Argos desactivado. Ya puedes desinstalarlo.", "Argos is off. You can uninstall it now."))
